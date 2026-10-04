@@ -142,8 +142,6 @@ def restaurant_qr(
 
 
 def _require_restaurant(db: Session, restaurant_id: int):
-    from app.models import Restaurant
-
     restaurant = restaurants.get_by_id(db, restaurant_id)
     if restaurant is None:
         raise ApiError(404, "RESTAURANT_NOT_FOUND", "Restaurant not found")
