@@ -333,7 +333,7 @@ export default function AdminRestaurantDetailPage() {
                 <div key={aspect}>
                   <p className="text-xs font-medium capitalize text-neutral-500">{aspect}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {labels.map((label) => (
+                    {labels.map((label: string) => (
                       <span
                         key={`${aspect}-${label}`}
                         className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-sm"
