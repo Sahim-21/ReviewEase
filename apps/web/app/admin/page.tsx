@@ -232,11 +232,17 @@ export default function AdminPage() {
         <ul className="flex flex-col gap-2">
           {restaurants.map((row) => (
             <li className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-neutral-200 px-3 py-2" key={row.id}>
-              <div>
+              <Link className="min-w-0" href={`/admin/restaurants/${row.id}`}>
                 <p className="font-medium">{row.name}</p>
                 <p className="font-mono text-xs text-neutral-600">/r/{row.slug}</p>
-              </div>
-              <div className="flex gap-2">
+              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  className="rounded-full border px-3 py-1 text-sm"
+                  href={`/admin/restaurants/${row.id}`}
+                >
+                  View Details
+                </Link>
                 <button className="rounded-full border px-3 py-1 text-sm" type="button" onClick={() => void loadQr(row.id, "svg")}>
                   SVG
                 </button>

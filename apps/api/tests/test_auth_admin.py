@@ -78,6 +78,18 @@ def test_admin_creates_restaurant_and_qr(client: TestClient, db: Session) -> Non
     assert png.headers["content-type"] == "image/png"
     assert png.content[:8] == b"\x89PNG\r\n\x1a\n"
 
+    detail = client.get(f"/api/admin/restaurants/{restaurant_id}", headers=headers)
+    assert detail.status_code == 200, detail.text
+    shown = detail.json()
+    assert shown["id"] == restaurant_id
+    assert shown["slug"] == "spice-lane"
+    assert shown["created_at"]
+    assert [item["name"] for item in shown["menu"]] == ["Dal tadka"]
+    assert shown["tags"][0]["label"] == "Warm"
+
+    missing = client.get("/api/admin/restaurants/999999", headers=headers)
+    assert missing.status_code == 404
+
     owner_token = _login(client, "owner@spice.test", "owner-pass-1")
     denied = client.post(
         "/api/admin/restaurants",

@@ -1,28 +1,21 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PrivateFeedbackModal } from "@/components/feedback/PrivateFeedbackModal";
 import { Done } from "@/components/steps/Done";
 import { Draft } from "@/components/steps/Draft";
-import { Dishes } from "@/components/steps/Dishes";
-import { FreeText } from "@/components/steps/FreeText";
-import { Ratings } from "@/components/steps/Ratings";
-import { Tags } from "@/components/steps/Tags";
-import { Tone } from "@/components/steps/Tone";
-import { Welcome } from "@/components/steps/Welcome";
-import { ProgressBar } from "@/components/ui/ProgressBar";
+import { Meal } from "@/components/steps/Meal";
+import { Notes } from "@/components/steps/Notes";
 import { RestaurantBanner } from "@/components/ui/RestaurantBanner";
 import { ApiError, completeSession, createDraft, startSession } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
 import { getDeviceId } from "@/lib/device";
-import { googleReviewUrl, SESSION_DRAFT_LIMIT } from "@/lib/google";
-import { outputLang, speechLocale } from "@/lib/lang";
-import type { Aspect, FlowStep, OutputLang, Ratings as RatingsMap, RestaurantPublic, Tone as ToneId } from "@/lib/types";
-
-const STEPS: FlowStep[] = ["welcome", "dishes", "ratings", "tags", "freetext", "tone", "draft", "done"];
-const PROGRESS_STEPS: FlowStep[] = STEPS.filter((item) => item !== "welcome");
+import { googleReviewUrl } from "@/lib/google";
+import { outputLang } from "@/lib/lang";
+import { ratingsFromSentiment, type Sentiment } from "@/lib/sentiment";
+import type { FlowStep, RestaurantPublic, Tone as ToneId } from "@/lib/types";
 
 type DinerFlowProps = {
   restaurant: RestaurantPublic;
@@ -30,32 +23,29 @@ type DinerFlowProps = {
 };
 
 const slide = {
-  initial: { opacity: 0, x: 28 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -20 },
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
 };
 
 export function DinerFlow({ restaurant, table }: DinerFlowProps) {
-  const [step, setStep] = useState<FlowStep>("welcome");
+  const [step, setStep] = useState<FlowStep>("meal");
   const [items, setItems] = useState<string[]>([]);
-  const [ratings, setRatings] = useState<RatingsMap>({});
-  const [tags, setTags] = useState<string[]>([]);
+  const [sentiment, setSentiment] = useState<Sentiment | null>(null);
   const [rawText, setRawText] = useState("");
   const [tone, setTone] = useState<ToneId>("casual");
-  const [lang, setLang] = useState<OutputLang>(() => outputLang(restaurant.default_lang));
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [draftLoading, setDraftLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [remaining, setRemaining] = useState(SESSION_DRAFT_LIMIT);
   const [copying, setCopying] = useState(false);
-  const [showGoogleFallback, setShowGoogleFallback] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const draftMetaRef = useRef<{ provider: string; grounding_ok: boolean } | null>(null);
+  const lang = outputLang(restaurant.default_lang);
 
-  const progressIndex = PROGRESS_STEPS.indexOf(step);
   const brand = restaurant.brand_color || "#C45C26";
-  const micLocale = useMemo(() => speechLocale(restaurant.default_lang), [restaurant.default_lang]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +58,7 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
       })
       .catch(() => {
         if (!cancelled) {
-          setDraftError("Could not start a session. You can still tap through.");
+          setDraftError("Could not start. You can still tap through.");
         }
       });
     return () => {
@@ -82,90 +72,43 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
     );
   }, []);
 
-  const addCustomDish = useCallback((name: string) => {
-    const cleaned = name.trim();
-    if (!cleaned) {
-      return;
-    }
-    setItems((current) => {
-      const match = current.find((item) => item.toLowerCase() === cleaned.toLowerCase());
-      if (match) {
-        return current;
+  const requestDraft = useCallback(
+    async (mode: "write" | "retry") => {
+      if (sessionId === null || token === null || !sentiment) {
+        setDraftError("Wait a moment and try again.");
+        return;
       }
-      return [...current, cleaned];
-    });
-  }, []);
-
-  const addCustomService = useCallback((label: string) => {
-    const cleaned = label.trim();
-    if (!cleaned) {
-      return;
-    }
-    setTags((current) => {
-      const match = current.find((item) => item.toLowerCase() === cleaned.toLowerCase());
-      if (match) {
-        return current;
-      }
-      return [...current, cleaned];
-    });
-  }, []);
-
-  const toggleTag = useCallback((label: string) => {
-    setTags((current) =>
-      current.includes(label) ? current.filter((item) => item !== label) : [...current, label],
-    );
-  }, []);
-
-  const setRating = useCallback((aspect: Aspect, value: number) => {
-    setRatings((current) => ({ ...current, [aspect]: value }));
-  }, []);
-
-  const go = (next: FlowStep) => setStep(next);
-
-  const requestDraft = useCallback(async () => {
-    if (sessionId === null || token === null) {
-      setDraftError("Session is not ready yet. Wait a moment and try again.");
-      return;
-    }
-    if (remaining <= 0) {
-      setDraftError("No regenerations left for this visit.");
-      return;
-    }
-    setDraftLoading(true);
-    setDraftError(null);
-    try {
-      const filled = Object.fromEntries(
-        Object.entries(ratings).filter((entry): entry is [string, number] => typeof entry[1] === "number"),
-      );
-      const result = await createDraft(sessionId, token, {
-        items,
-        ratings: filled,
-        tags,
-        raw_text: rawText,
-        tone,
-        lang,
-      });
-      setDraft(result.text);
-      setRemaining((count) => Math.max(0, count - 1));
-    } catch (err) {
-      if (err instanceof ApiError && (err.code === "RATE_LIMIT_SESSION" || err.code === "RATE_LIMIT_DEVICE")) {
-        setRemaining(0);
-        setDraftError(err.message);
-      } else {
-        const message = err instanceof ApiError ? err.message : "Could not phrase a draft.";
+      setDraftLoading(true);
+      setRetrying(mode === "retry");
+      setDraftError(null);
+      try {
+        const result = await createDraft(sessionId, token, {
+          items,
+          ratings: ratingsFromSentiment(sentiment),
+          tags: [],
+          raw_text: rawText,
+          tone,
+          lang,
+        });
+        setDraft(result.text);
+        draftMetaRef.current = { provider: result.provider, grounding_ok: result.grounding_ok };
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : "Could not write your review.";
         setDraftError(message);
+      } finally {
+        setDraftLoading(false);
+        setRetrying(false);
       }
-    } finally {
-      setDraftLoading(false);
-    }
-  }, [items, lang, ratings, rawText, remaining, sessionId, tags, token, tone]);
+    },
+    [items, lang, rawText, sentiment, sessionId, token, tone],
+  );
 
   useEffect(() => {
-    if (step !== "draft" || sessionId === null || token === null) {
+    if (step !== "review" || sessionId === null || token === null || !sentiment) {
       return;
     }
-    void requestDraft();
-    // Fetch when the diner reaches this step (and the session exists).
+    void requestDraft("write");
+    // Fetch once when the diner reaches the review screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, sessionId, token]);
 
@@ -194,35 +137,21 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
 
   const copyAndOpen = async () => {
     setCopying(true);
-    setShowGoogleFallback(true);
     const copied = await copyText(draft);
     await logComplete(copied, true);
     openGoogle();
     setCopying(false);
-  };
-
-  const openGoogleFallback = async () => {
-    await logComplete(true, true);
-    openGoogle();
+    setStep("thanks");
   };
 
   return (
     <div
-      className="mx-auto flex min-h-dvh max-w-md flex-col px-4 pb-6 pt-5"
+      className="mx-auto flex min-h-dvh max-w-2xl flex-col px-4 pb-6 pt-5"
       style={{ ["--brand" as string]: brand, background: `color-mix(in srgb, ${brand} 10%, white)` }}
     >
-      <RestaurantBanner name={restaurant.name} logoUrl={restaurant.logo_url} table={table} />
-      {progressIndex >= 0 ? (
-        <div className="mt-3">
-          <ProgressBar step={progressIndex + 1} total={PROGRESS_STEPS.length} />
-        </div>
+      {step !== "thanks" ? (
+        <RestaurantBanner name={restaurant.name} logoUrl={restaurant.logo_url} table={table} />
       ) : null}
-      <p className="mt-4 text-[11px] text-neutral-500">
-        No login. We only use what you tap or type.{" "}
-        <button type="button" onClick={() => setFeedbackOpen(true)} className="underline decoration-dotted">
-          Send private feedback anytime
-        </button>
-      </p>
       <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
@@ -233,82 +162,40 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
             exit={slide.exit}
             transition={{ duration: 0.22, ease: "easeOut" }}
           >
-            {step === "welcome" ? (
-              <Welcome restaurantName={restaurant.name} onNext={() => go("dishes")} />
-            ) : null}
-            {step === "dishes" ? (
-              <Dishes
-                items={restaurant.menu}
+            {step === "meal" ? (
+              <Meal
+                dishes={restaurant.menu}
                 selected={items}
-                customTags={tags.filter((label) => !restaurant.tags.some((tag) => tag.label === label))}
-                onToggle={toggleItem}
-                onAddCustomDish={addCustomDish}
-                onAddCustomService={addCustomService}
-                onRemoveCustomService={toggleTag}
-                onBack={() => go("welcome")}
-                onNext={() => go("ratings")}
+                sentiment={sentiment}
+                onToggleDish={toggleItem}
+                onSentiment={setSentiment}
+                onNext={() => setStep("notes")}
               />
             ) : null}
-            {step === "ratings" ? (
-              <Ratings
-                ratings={ratings}
-                onChange={setRating}
-                onBack={() => go("dishes")}
-                onNext={() => go("tags")}
-              />
-            ) : null}
-            {step === "tags" ? (
-              <Tags
-                tags={restaurant.tags}
-                selected={tags}
-                onToggle={toggleTag}
-                onBack={() => go("ratings")}
-                onNext={() => go("freetext")}
-              />
-            ) : null}
-            {step === "freetext" ? (
-              <FreeText
+            {step === "notes" ? (
+              <Notes
                 value={rawText}
+                tone={tone}
                 onChange={setRawText}
-                speechLocale={micLocale}
-                onBack={() => go("tags")}
-                onNext={() => go("tone")}
+                onTone={setTone}
+                onNext={() => setStep("review")}
               />
             ) : null}
-            {step === "tone" ? (
-              <Tone
-                value={tone}
-                onChange={setTone}
-                lang={lang}
-                onLangChange={setLang}
-                onBack={() => go("freetext")}
-                onNext={() => go("draft")}
-              />
-            ) : null}
-            {step === "draft" ? (
+            {step === "review" ? (
               <Draft
                 text={draft}
                 loading={draftLoading}
+                retrying={retrying}
                 error={draftError}
-                remaining={remaining}
                 copying={copying}
-                showGoogleFallback={showGoogleFallback}
                 onChange={setDraft}
-                onRegenerate={() => void requestDraft()}
+                onTryAgain={() => void requestDraft("retry")}
                 onCopyAndOpen={() => void copyAndOpen()}
-                onOpenGoogle={() => void openGoogleFallback()}
                 onPrivateFeedback={() => setFeedbackOpen(true)}
-                onJourney={() => go("done")}
-                onBack={() => go("tone")}
               />
             ) : null}
-            {step === "done" ? (
-              <Done
-                restaurantName={restaurant.name}
-                dishes={items}
-                ratings={ratings}
-                onPrivateFeedback={() => setFeedbackOpen(true)}
-              />
+            {step === "thanks" ? (
+              <Done restaurantName={restaurant.name} dishes={items} sentiment={sentiment} />
             ) : null}
           </motion.div>
         </AnimatePresence>
@@ -319,6 +206,10 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
           sessionId={sessionId}
           token={token}
           onClose={() => setFeedbackOpen(false)}
+          onSent={() => {
+            setFeedbackOpen(false);
+            setStep("thanks");
+          }}
         />
       ) : null}
     </div>

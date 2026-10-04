@@ -50,7 +50,7 @@ export type FeedbackResponse = {
   submitted: boolean;
 };
 
-export type FlowStep = "welcome" | "dishes" | "ratings" | "tags" | "freetext" | "tone" | "draft" | "done";
+export type FlowStep = "meal" | "notes" | "review" | "thanks";
 
 export type RestaurantSummary = {
   id: number;
@@ -58,6 +58,17 @@ export type RestaurantSummary = {
   name: string;
   google_place_id: string;
   brand_color: string | null;
+};
+
+export type AdminRestaurantDetail = {
+  id: number;
+  slug: string;
+  name: string;
+  google_place_id: string;
+  brand_color: string | null;
+  created_at: string;
+  menu: MenuItemPublic[];
+  tags: TagPublic[];
 };
 
 export type OwnerMetrics = {

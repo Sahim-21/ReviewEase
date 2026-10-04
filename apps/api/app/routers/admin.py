@@ -9,7 +9,7 @@ from app.errors import ApiError
 from app.passwords import hash_password
 from app.qr import qr_png, qr_svg, review_url
 from app.repositories import menu_items, restaurants, tables, tags, users as user_repo
-from app.schemas import AdminRestaurantBody, RestaurantCreate, RestaurantSummary, UserCreate
+from app.schemas import AdminRestaurantBody, AdminRestaurantDetail, MenuItemPublic, RestaurantCreate, RestaurantSummary, TagPublic, UserCreate
 from app.slug import unique_slug
 
 router = APIRouter(prefix="/api/admin")
@@ -76,6 +76,30 @@ def create_restaurant(
         name=restaurant.name,
         google_place_id=restaurant.google_place_id,
         brand_color=restaurant.brand_color,
+    )
+
+
+@router.get("/restaurants/{restaurant_id}", response_model=AdminRestaurantDetail)
+def get_restaurant(
+    restaurant_id: int,
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> AdminRestaurantDetail:
+    restaurant = restaurants.get_by_id(db, restaurant_id)
+    if restaurant is None:
+        raise ApiError(404, "RESTAURANT_NOT_FOUND", "Restaurant not found")
+    menu = menu_items.list_for_restaurant(db, restaurant.id, active_only=False)
+    tag_rows = tags.list_for_restaurant(db, restaurant.id)
+    created = restaurant.created_at.isoformat() if restaurant.created_at else ""
+    return AdminRestaurantDetail(
+        id=restaurant.id,
+        slug=restaurant.slug,
+        name=restaurant.name,
+        google_place_id=restaurant.google_place_id,
+        brand_color=restaurant.brand_color,
+        created_at=created,
+        menu=[MenuItemPublic(id=item.id, name=item.name, category=item.category) for item in menu],
+        tags=[TagPublic(id=tag.id, label=tag.label, aspect=tag.aspect) for tag in tag_rows],
     )
 
 

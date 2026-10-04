@@ -337,6 +337,17 @@ class RestaurantSummary(BaseModel):
     brand_color: str | None
 
 
+class AdminRestaurantDetail(BaseModel):
+    id: int
+    slug: str
+    name: str
+    google_place_id: str
+    brand_color: str | None
+    created_at: str
+    menu: list[MenuItemPublic]
+    tags: list[TagPublic]
+
+
 class FunnelCounts(BaseModel):
     scans: int
     started: int

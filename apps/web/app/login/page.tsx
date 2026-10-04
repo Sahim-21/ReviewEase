@@ -2,10 +2,26 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
-import { writeAuth } from "@/lib/auth";
+import { readAuth, writeAuth, type AuthUser } from "@/lib/auth";
 import { login } from "@/lib/staffApi";
+
+function staffHome(role: AuthUser["role"]): string {
+  return role === "admin" ? "/admin" : "/dashboard";
+}
+
+function nextAfterLogin(role: AuthUser["role"]): string {
+  const raw = new URLSearchParams(window.location.search).get("next");
+  if (
+    raw &&
+    (raw.startsWith("/admin") || raw.startsWith("/dashboard") || raw.startsWith("/owner")) &&
+    !raw.startsWith("//")
+  ) {
+    return raw;
+  }
+  return staffHome(role);
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +30,15 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    const existing = readAuth();
+    if (!existing?.token) {
+      return;
+    }
+    writeAuth(existing);
+    router.replace(nextAfterLogin(existing.role));
+  }, [router]);
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -21,7 +46,7 @@ export default function LoginPage() {
     try {
       const user = await login(email.trim(), password);
       writeAuth(user);
-      router.push(user.role === "admin" ? "/admin" : "/dashboard");
+      router.push(nextAfterLogin(user.role));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed");
     } finally {

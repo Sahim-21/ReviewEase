@@ -37,7 +37,6 @@ export function RestaurantBanner({ name, logoUrl, table }: RestaurantBannerProps
         </div>
       )}
       <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">You are reviewing</p>
         <h1 className="truncate text-xl font-semibold tracking-tight">{name}</h1>
         {table ? <p className="text-sm text-neutral-600">Table {table}</p> : null}
       </div>

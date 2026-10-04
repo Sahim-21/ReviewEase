@@ -2,7 +2,11 @@
 
 import { motion } from "framer-motion";
 
-export function DraftLoading() {
+type DraftLoadingProps = {
+  label?: string;
+};
+
+export function DraftLoading({ label }: DraftLoadingProps) {
   return (
     <div className="mt-6 flex flex-1 flex-col items-center justify-center gap-4" role="status">
       <div className="flex gap-2">
@@ -15,7 +19,7 @@ export function DraftLoading() {
           />
         ))}
       </div>
-      <p className="text-sm text-neutral-600">Phrasing your notes…</p>
+      {label ? <p className="text-sm text-neutral-600">{label}</p> : null}
     </div>
   );
 }

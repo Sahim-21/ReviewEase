@@ -1,70 +1,53 @@
 "use client";
 
 import { DraftLoading } from "@/components/ui/DraftLoading";
-import { StepHeader } from "@/components/ui/StepHeader";
 import { tapFeedback } from "@/lib/haptic";
 
 type DraftProps = {
   text: string;
   loading: boolean;
+  retrying: boolean;
   error: string | null;
-  remaining: number;
   copying: boolean;
-  showGoogleFallback: boolean;
   onChange: (value: string) => void;
-  onRegenerate: () => void;
+  onTryAgain: () => void;
   onCopyAndOpen: () => void;
-  onOpenGoogle: () => void;
   onPrivateFeedback: () => void;
-  onJourney: () => void;
-  onBack: () => void;
 };
 
 export function Draft({
   text,
   loading,
+  retrying,
   error,
-  remaining,
   copying,
-  showGoogleFallback,
   onChange,
-  onRegenerate,
+  onTryAgain,
   onCopyAndOpen,
-  onOpenGoogle,
   onPrivateFeedback,
-  onJourney,
-  onBack,
 }: DraftProps) {
-  const regenerateLeft = Math.max(0, remaining);
+  const firstWrite = loading && !retrying && !text.trim();
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <StepHeader title="Your draft" />
-      <p className="mt-2 rounded-xl bg-black/5 px-3 py-2 text-xs text-neutral-700">
-        AI helped phrase this from your inputs. Edit freely.
-      </p>
-      {loading ? (
-        <DraftLoading />
+      <h2 className="text-xl font-semibold tracking-tight">Your review is ready</h2>
+      {firstWrite ? (
+        <DraftLoading label="Writing your review..." />
       ) : (
-        <textarea
-          value={text}
-          onChange={(event) => onChange(event.target.value)}
-          className="mt-4 min-h-40 flex-1 resize-none rounded-2xl border border-black/10 bg-white p-4 text-base leading-relaxed outline-none focus:border-[var(--brand)]"
-        />
+        <div className="relative mt-4 min-h-40 flex-1">
+          <textarea
+            value={text}
+            onChange={(event) => onChange(event.target.value)}
+            disabled={loading}
+            className="h-full min-h-40 w-full resize-none rounded-2xl bg-white p-4 text-base leading-relaxed outline-none shadow-sm ring-0 disabled:opacity-70"
+          />
+          {retrying ? (
+            <div className="absolute right-3 top-3" aria-hidden>
+              <span className="block h-4 w-4 animate-spin rounded-full border-2 border-[var(--brand)] border-t-transparent" />
+            </div>
+          ) : null}
+        </div>
       )}
       {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
-      <button
-        type="button"
-        onClick={() => {
-          tapFeedback();
-          onRegenerate();
-        }}
-        disabled={loading || regenerateLeft <= 0}
-        className="mt-3 text-left text-sm font-medium text-[var(--brand)] disabled:opacity-40"
-      >
-        {regenerateLeft <= 0
-          ? "No regenerations left"
-          : `Regenerate (${regenerateLeft} left)`}
-      </button>
       <button
         type="button"
         onClick={() => {
@@ -72,52 +55,33 @@ export function Draft({
           onCopyAndOpen();
         }}
         disabled={loading || copying || !text.trim()}
-        className="mt-4 rounded-full bg-[var(--brand)] py-3 text-sm font-semibold text-white disabled:opacity-40"
+        className="mt-4 w-full rounded-full bg-[var(--brand)] py-3 text-sm font-semibold text-white disabled:opacity-40"
       >
-        {copying ? "Opening Google…" : "Copy and open Google"}
+        Copy and open Google
       </button>
-      {showGoogleFallback ? (
-        <button
-          type="button"
-          onClick={() => {
-            tapFeedback();
-            onOpenGoogle();
-          }}
-          className="mt-2 text-center text-sm font-medium underline"
-        >
-          Copied? Tap here to open Google
-        </button>
-      ) : null}
+      <button
+        type="button"
+        onClick={() => {
+          tapFeedback();
+          onTryAgain();
+        }}
+        disabled={loading}
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-full border border-black/15 bg-white py-3 text-sm font-medium disabled:opacity-40"
+      >
+        {retrying ? (
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
+        ) : null}
+        Try again
+      </button>
       <button
         type="button"
         onClick={() => {
           tapFeedback();
           onPrivateFeedback();
         }}
-        className="mt-3 rounded-full border border-black/15 bg-white py-3 text-sm font-medium"
+        className="mt-4 text-center text-sm text-neutral-500 underline decoration-dotted"
       >
-        Send private feedback
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          tapFeedback();
-          onJourney();
-        }}
-        disabled={loading}
-        className="mt-3 rounded-full bg-[var(--brand)]/10 py-3 text-sm font-semibold text-[var(--brand)] disabled:opacity-40"
-      >
-        See my meal journey
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          tapFeedback();
-          onBack();
-        }}
-        className="mt-2 py-2 text-sm text-neutral-500"
-      >
-        Back
+        Send private feedback instead
       </button>
     </div>
   );

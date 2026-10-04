@@ -1,6 +1,6 @@
 import { API_URL, ApiError } from "./api";
 import type { AuthUser } from "./auth";
-import type { OwnerMetrics, RestaurantSummary } from "./types";
+import type { AdminRestaurantDetail, OwnerMetrics, RestaurantSummary } from "./types";
 
 async function parseError(res: Response): Promise<ApiError> {
   try {
@@ -79,18 +79,36 @@ export async function createRestaurant(
   return res.json() as Promise<RestaurantSummary>;
 }
 
+export async function fetchAdminRestaurant(token: string, restaurantId: number): Promise<AdminRestaurantDetail> {
+  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}`, {
+    headers: authHeader(token),
+  });
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+  return res.json() as Promise<AdminRestaurantDetail>;
+}
+
 export async function fetchQr(
   token: string,
   restaurantId: number,
   format: "svg" | "png",
   table?: string,
+  extras?: { regen?: boolean; bust?: number },
 ): Promise<Blob> {
   const params = new URLSearchParams({ format });
   if (table) {
     params.set("table", table);
   }
+  if (extras?.regen) {
+    params.set("regen", "true");
+  }
+  if (extras?.bust != null) {
+    params.set("t", String(extras.bust));
+  }
   const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}/qr?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
   });
   if (!res.ok) {
     throw await parseError(res);
