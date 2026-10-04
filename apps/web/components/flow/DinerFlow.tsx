@@ -8,6 +8,7 @@ import { Done } from "@/components/steps/Done";
 import { Draft } from "@/components/steps/Draft";
 import { Meal } from "@/components/steps/Meal";
 import { Notes } from "@/components/steps/Notes";
+import { Tags } from "@/components/steps/Tags";
 import { RestaurantBanner } from "@/components/ui/RestaurantBanner";
 import { ApiError, completeSession, createDraft, startSession } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
@@ -32,6 +33,7 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
   const [step, setStep] = useState<FlowStep>("meal");
   const [items, setItems] = useState<string[]>([]);
   const [sentiment, setSentiment] = useState<Sentiment | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
   const [rawText, setRawText] = useState("");
   const [tone, setTone] = useState<ToneId>("casual");
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -72,6 +74,14 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
     );
   }, []);
 
+  const toggleTag = useCallback((label: string) => {
+    setTags((current) =>
+      current.includes(label) ? current.filter((item: string) => item !== label) : [...current, label],
+    );
+  }, []);
+
+  const goAfterMeal = () => setStep(restaurant.tags.length ? "tags" : "notes");
+
   const requestDraft = useCallback(
     async (mode: "write" | "retry") => {
       if (sessionId === null || token === null || !sentiment) {
@@ -85,7 +95,7 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
         const result = await createDraft(sessionId, token, {
           items,
           ratings: ratingsFromSentiment(sentiment),
-          tags: [],
+          tags,
           raw_text: rawText,
           tone,
           lang,
@@ -100,7 +110,7 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
         setRetrying(false);
       }
     },
-    [items, lang, rawText, sentiment, sessionId, token, tone],
+    [items, lang, rawText, sentiment, sessionId, tags, token, tone],
   );
 
   useEffect(() => {
@@ -169,7 +179,19 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
                 sentiment={sentiment}
                 onToggleDish={toggleItem}
                 onSentiment={setSentiment}
+                onNext={goAfterMeal}
+              />
+            ) : null}
+            {step === "tags" ? (
+              <Tags
+                tags={restaurant.tags}
+                selected={tags}
+                onToggle={toggleTag}
                 onNext={() => setStep("notes")}
+                onSkip={() => {
+                  setTags([]);
+                  setStep("notes");
+                }}
               />
             ) : null}
             {step === "notes" ? (

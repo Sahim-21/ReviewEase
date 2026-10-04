@@ -4,11 +4,11 @@ export type MenuItemPublic = {
   category: string | null;
 };
 
-export type TagPublic = {
+export interface TagPublic {
   id: number;
   label: string;
   aspect: string;
-};
+}
 
 export type RestaurantPublic = {
   slug: string;
@@ -50,7 +50,7 @@ export type FeedbackResponse = {
   submitted: boolean;
 };
 
-export type FlowStep = "meal" | "notes" | "review" | "thanks";
+export type FlowStep = "meal" | "tags" | "notes" | "review" | "thanks";
 
 export type RestaurantSummary = {
   id: number;
