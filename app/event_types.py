@@ -1,0 +1,5 @@
+SCAN = "scan"
+GENERATE = "generate"
+COMPLETE = "complete"
+COPY = "copy"
+OPEN_GOOGLE = "open_google"

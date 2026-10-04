@@ -1,0 +1,31 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Restaurant
+from app.schemas import RestaurantCreate
+
+
+def get_by_id(db: Session, restaurant_id: int) -> Restaurant | None:
+    return db.get(Restaurant, restaurant_id)
+
+
+def get_by_slug(db: Session, slug: str) -> Restaurant | None:
+    return db.scalar(select(Restaurant).where(Restaurant.slug == slug))
+
+
+def list_all(db: Session) -> list[Restaurant]:
+    return list(db.scalars(select(Restaurant).order_by(Restaurant.id)).all())
+
+
+def create(db: Session, data: RestaurantCreate) -> Restaurant:
+    restaurant = Restaurant(
+        slug=data.slug,
+        name=data.name,
+        google_place_id=data.google_place_id,
+        brand_color=data.brand_color,
+        logo_url=data.logo_url,
+        default_lang=data.default_lang,
+    )
+    db.add(restaurant)
+    db.flush()
+    return restaurant
