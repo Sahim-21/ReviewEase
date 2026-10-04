@@ -1,0 +1,44 @@
+---
+description: ReviewEase stack, coding standards, and review-policy guardrails
+alwaysApply: true
+---
+
+# ReviewEase (Review Assistant)
+
+QR flow that phrases a diner's own experience, then hands them to Google. Owners get private feedback. We are a review assistant, not a review generator.
+
+## Stack
+
+- `/apps/web` — Next.js (App Router) + TypeScript + Tailwind + Framer Motion, PWA. Host: Vercel.
+- `/apps/api` — FastAPI + Pydantic + SQLAlchemy + Alembic. Host: Render/Fly/Railway.
+- Postgres (Supabase or Neon). Auth for owner/admin only (Supabase Auth or JWT). Diners are anonymous.
+- LLM chain: Groq (Llama 3.1 8B Instant) → Gemini Flash-Lite → template fallback. Model names in env.
+
+```
+apps/web/app/r/[slug]/page.tsx
+apps/web/components/steps/{Dishes,Ratings,Tags,FreeText,Tone,Draft,Done}.tsx
+apps/web/components/ui/{ProgressBar,EmojiRating,TagChip,DishCard}.tsx
+apps/web/lib/{api,clipboard}.ts
+apps/web/app/dashboard/*
+apps/api/   # routes, models, llm gateway, alembic
+```
+
+QR encodes `https://app.com/r/{slug}?t={table}` only. Open Google via `https://search.google.com/local/writereview?placeid=` after the diner copies the draft.
+
+## Coding
+
+- Type every boundary: TypeScript on the web, Pydantic models on the API. No untyped payloads.
+- Keep modules small: one step, provider, or check per file.
+- No secrets, API keys, or password hashes in source. Config comes from env; document keys in `.env.example` only (`DATABASE_URL`, `JWT_SECRET`, `ALLOWED_ORIGIN`, `LLM_CHAIN`, `GROQ_*`, `GEMINI_*`).
+
+```python
+# BAD: groq_key = "gsk_live_..."
+# GOOD: groq_key = os.environ["GROQ_API_KEY"]
+```
+
+## Product
+
+- Drafts use ONLY customer-provided facts (dishes, ratings, tags, free text). Never invent dishes, prices, staff, events, or praise.
+- No auto-posting to Google. The diner taps Submit on Google themselves.
+- No rewards, discounts, or points tied to posting a review. Participation badges may exist later; they must not depend on a Google post.
+- No review gating. Private feedback and the Google handoff are available at every rating.

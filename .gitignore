@@ -1,6 +1,13 @@
+.env
+.env.local
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 .mypy_cache/
-.env
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+dist/
+.DS_Store

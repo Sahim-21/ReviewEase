@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  api:
+    name: API lint, tests, migrations
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: reviewease
+          POSTGRES_PASSWORD: reviewease
+          POSTGRES_DB: reviewease
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reviewease -d reviewease"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg2://reviewease:reviewease@localhost:5432/reviewease
+      JWT_SECRET: ci-jwt-secret-value-32-bytes-ok
+      DEVICE_HASH_SALT: ci-device-hash-salt-32-bytes
+      ALLOWED_ORIGIN: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -r requirements.txt ruff
+      - name: Lint
+        run: ruff check app tests evals
+      - name: Tests
+        run: pytest tests -q
+      - name: Alembic upgrade
+        run: alembic upgrade head
+      - name: Alembic check
+        run: alembic check
+
+  web:
+    name: Web lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npx tsc --noEmit
