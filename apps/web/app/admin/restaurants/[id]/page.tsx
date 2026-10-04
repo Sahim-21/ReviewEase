@@ -307,7 +307,7 @@ export default function AdminRestaurantDetailPage() {
               <div key={category}>
                 <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">{category}</p>
                 <ul className="mt-1 list-disc pl-4 text-sm">
-                  {names.map((name) => (
+                  {names.map((name: string) => (
                     <li key={name}>{name}</li>
                   ))}
                 </ul>
