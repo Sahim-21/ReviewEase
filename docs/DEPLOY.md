@@ -17,7 +17,7 @@ Driver in this repo is **psycopg2** (`postgresql+psycopg2://…`). Alembic revis
 | `AUTH_TOKEN_MINUTES` | API | No | Staff JWT lifetime. Default `1440`. |
 | `LLM_CHAIN` | API | No | Provider order. Default `groq,gemini`. |
 | `GROQ_API_KEY` | API | For Groq drafts | [https://console.groq.com/keys](https://console.groq.com/keys) |
-| `GROQ_MODEL` | API | No | Default `llama-3.1-8b-instant`. |
+| `GROQ_MODEL` | API | No | Default `qwen/qwen3.8-27b`. |
 | `GEMINI_API_KEY` | API | For Gemini drafts | [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | `GEMINI_MODEL` | API | No | Default `gemini-2.0-flash-lite`. |
 | `ADMIN_EMAIL` | API | Bootstrap only | First admin email for `python -m app.bootstrap_admin`. |

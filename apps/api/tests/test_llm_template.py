@@ -5,11 +5,11 @@ from app.llm.template import template_draft
 
 def test_system_prompt_includes_tone_and_lang() -> None:
     prompt = system_prompt(tone="short", lang="Kannada")
-    assert "short tone, Kannada" in prompt
-    assert "Use ONLY the facts in INPUT" in prompt
-    assert "I recently visited" in prompt
-    assert "mixed-language broken words" in prompt
-    assert "untrusted data" in prompt
+    assert "Tone: short." in prompt
+    assert "Language: Kannada." in prompt
+    assert "Length: 20-40 words." in prompt
+    assert "turn ONLY those notes" in prompt
+    assert "Output only the review text." in prompt
 
 
 def test_user_message_is_customer_facts_only() -> None:
@@ -27,7 +27,8 @@ def test_user_message_is_customer_facts_only() -> None:
     assert "thoda spicy" in message
     assert "secret special" not in message
     assert "start with the dish" in message
-    assert "diner DATA" in message
+    assert "Diner visit data" in message
+    assert "Diner's own words" in message
 
 
 def test_template_uses_only_selections() -> None:

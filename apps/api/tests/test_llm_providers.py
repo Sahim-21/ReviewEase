@@ -3,7 +3,7 @@ import asyncio
 import httpx
 
 from app.llm.gemini import GEMINI_URL, GeminiProvider
-from app.llm.groq import GROQ_URL, GroqProvider
+from app.llm.groq import GROQ_URL, GroqProvider, resolve_groq_model
 
 
 def test_groq_posts_openai_compatible_chat() -> None:
@@ -21,7 +21,7 @@ def test_groq_posts_openai_compatible_chat() -> None:
     assert text == "A grounded draft."
     assert seen["url"] == GROQ_URL
     assert seen["auth"] == "Bearer test-key"
-    assert "llama-3.1-8b-instant" in str(seen["body"])
+    assert "qwen/qwen3.8-27b" in str(seen["body"])
     assert "system rules" in str(seen["body"])
 
 
@@ -33,6 +33,12 @@ def test_groq_requires_api_key() -> None:
         assert "GROQ_API_KEY" in str(exc)
     else:
         raise AssertionError("expected missing key to fail")
+
+
+def test_groq_falls_back_from_unknown_model() -> None:
+    assert resolve_groq_model("not-a-real-model") == "qwen/qwen3.8-27b"
+    assert resolve_groq_model("llama-3.1-8b-instant") == "qwen/qwen3.8-27b"
+    assert resolve_groq_model("openai/gpt-oss-20b") == "openai/gpt-oss-20b"
 
 
 def test_gemini_posts_generate_content() -> None:

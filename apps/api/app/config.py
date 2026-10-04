@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     allowed_origin: str = "http://localhost:3000"
     llm_chain: str = "groq,gemini"
     groq_api_key: str = ""
-    groq_model: str = "llama-3.1-8b-instant"
+    groq_model: str = "qwen/qwen3.8-27b"
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash-lite"
     app_public_url: str = "http://localhost:3000"
