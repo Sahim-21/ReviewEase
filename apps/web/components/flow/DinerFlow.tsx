@@ -80,7 +80,18 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
     );
   }, []);
 
-  const goAfterMeal = () => setStep(restaurant.tags.length ? "tags" : "notes");
+  const goAfterMeal = (custom: string) => {
+    const extra = custom.trim().slice(0, 60);
+    const menuNames = new Set(restaurant.menu.map((item: { name: string }) => item.name));
+    setItems((current: string[]) => {
+      const selectedMenu = current.filter((name: string) => menuNames.has(name));
+      if (!extra || selectedMenu.includes(extra)) {
+        return selectedMenu;
+      }
+      return [...selectedMenu, extra];
+    });
+    setStep(restaurant.tags.length ? "tags" : "notes");
+  };
 
   const requestDraft = useCallback(
     async (mode: "write" | "retry") => {
@@ -176,6 +187,7 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
               <Meal
                 dishes={restaurant.menu}
                 selected={items}
+                custom={items.find((name: string) => !restaurant.menu.some((item: { name: string }) => item.name === name)) ?? ""}
                 sentiment={sentiment}
                 onToggleDish={toggleItem}
                 onSentiment={setSentiment}

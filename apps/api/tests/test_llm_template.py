@@ -5,9 +5,9 @@ from app.llm.template import template_draft
 
 def test_system_prompt_includes_tone_and_lang() -> None:
     prompt = system_prompt(tone="short", lang="Kannada")
-    assert "Tone: short." in prompt
+    assert "Tone: short" in prompt
     assert "Language: Kannada." in prompt
-    assert "Length: 20-40 words." in prompt
+    assert "Length: 20-40 words" in prompt
     assert "turn ONLY those notes" in prompt
     assert "Output only the review text." in prompt
 

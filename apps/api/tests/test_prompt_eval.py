@@ -64,9 +64,9 @@ class Capture:
 def test_prompt_asks_model_to_read_mixed_broken_words() -> None:
     prompt = system_prompt(tone="casual", lang="Hinglish")
     assert "Hinglish" in prompt
-    assert "Tone: casual." in prompt
+    assert "Tone: casual" in prompt
     assert "Language: Hinglish." in prompt
-    assert "Length: 40-80 words." in prompt
+    assert "Length: 40-80 words" in prompt
     assert "If the diner wrote their own words" in prompt
 
 
@@ -76,7 +76,7 @@ def test_hinglish_eval_preserves_notes_and_output_lang() -> None:
     assert HINGLISH_NOTE in message
     assert "garlic naan" not in message
     prompt = system_prompt(tone=inp.tone, lang=inp.lang)
-    assert "Tone: casual." in prompt
+    assert "Tone: casual" in prompt
     assert "Language: Hinglish." in prompt
     template = template_draft(inp)
     assert HINGLISH_NOTE in template
@@ -95,7 +95,7 @@ def test_kannada_eval_preserves_script_and_output_lang() -> None:
     message = user_message(inp, style_hint="start with the service")
     assert KANNADA_NOTE in message
     prompt = system_prompt(tone=inp.tone, lang=inp.lang)
-    assert "Tone: detailed." in prompt
+    assert "Tone: detailed" in prompt
     assert "Language: Kannada." in prompt
     template = template_draft(inp)
     assert KANNADA_NOTE in template

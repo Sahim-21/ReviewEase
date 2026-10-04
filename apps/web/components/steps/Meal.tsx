@@ -1,20 +1,26 @@
 "use client";
 
+import { useState } from "react";
+
 import { DishCard } from "@/components/ui/DishCard";
 import { tapFeedback } from "@/lib/haptic";
 import { SENTIMENT_OPTIONS, type Sentiment } from "@/lib/sentiment";
 import type { MenuItemPublic } from "@/lib/types";
 
+const CUSTOM_LIMIT = 60;
+
 type MealProps = {
   dishes: MenuItemPublic[];
   selected: string[];
+  custom: string;
   sentiment: Sentiment | null;
   onToggleDish: (name: string) => void;
   onSentiment: (value: Sentiment) => void;
-  onNext: () => void;
+  onNext: (custom: string) => void;
 };
 
-export function Meal({ dishes, selected, sentiment, onToggleDish, onSentiment, onNext }: MealProps) {
+export function Meal({ dishes, selected, custom, sentiment, onToggleDish, onSentiment, onNext }: MealProps) {
+  const [customFood, setCustomFood] = useState(custom);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -36,6 +42,16 @@ export function Meal({ dishes, selected, sentiment, onToggleDish, onSentiment, o
             ) : (
               <p className="mt-3 text-sm text-neutral-500">Pick how the visit felt — you can still continue.</p>
             )}
+            <label className="mt-4 block text-sm font-medium text-neutral-700">
+              Something not on the list?
+              <input
+                className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-base font-normal shadow-sm outline-none"
+                maxLength={CUSTOM_LIMIT}
+                placeholder="Add something not listed (e.g. house special, add-ons, extras...)"
+                value={customFood}
+                onChange={(event) => setCustomFood(event.target.value.slice(0, CUSTOM_LIMIT))}
+              />
+            </label>
           </section>
           <section>
             <p className="text-sm font-medium text-neutral-700">How did you feel?</p>
@@ -72,7 +88,7 @@ export function Meal({ dishes, selected, sentiment, onToggleDish, onSentiment, o
         type="button"
         onClick={() => {
           tapFeedback();
-          onNext();
+          onNext(customFood);
         }}
         disabled={!sentiment}
         className="mt-4 w-full rounded-full bg-[var(--brand)] py-3 text-sm font-semibold text-white disabled:opacity-40"
