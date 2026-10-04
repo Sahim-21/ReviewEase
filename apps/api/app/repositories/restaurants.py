@@ -1,7 +1,16 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.models import Restaurant
+from app.models import (
+    DiningTable,
+    DinerSession,
+    Event,
+    MenuItem,
+    PrivateFeedback,
+    Restaurant,
+    TagBank,
+    User,
+)
 from app.schemas import RestaurantCreate
 
 
@@ -29,3 +38,22 @@ def create(db: Session, data: RestaurantCreate) -> Restaurant:
     db.add(restaurant)
     db.flush()
     return restaurant
+
+
+def set_active(db: Session, restaurant: Restaurant, active: bool) -> Restaurant:
+    restaurant.active = active
+    db.flush()
+    return restaurant
+
+
+def delete_restaurant(db: Session, restaurant: Restaurant) -> None:
+    restaurant_id = restaurant.id
+    db.execute(delete(Event).where(Event.restaurant_id == restaurant_id))
+    db.execute(delete(PrivateFeedback).where(PrivateFeedback.restaurant_id == restaurant_id))
+    db.execute(delete(DinerSession).where(DinerSession.restaurant_id == restaurant_id))
+    db.execute(delete(DiningTable).where(DiningTable.restaurant_id == restaurant_id))
+    db.execute(delete(MenuItem).where(MenuItem.restaurant_id == restaurant_id))
+    db.execute(delete(TagBank).where(TagBank.restaurant_id == restaurant_id))
+    db.execute(delete(User).where(User.restaurant_id == restaurant_id))
+    db.delete(restaurant)
+    db.flush()

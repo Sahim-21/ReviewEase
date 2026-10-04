@@ -22,6 +22,7 @@ def get_restaurant(slug: str, db: Session = Depends(get_db)) -> RestaurantPublic
         brand_color=restaurant.brand_color,
         logo_url=restaurant.logo_url,
         default_lang=restaurant.default_lang,
+        active=restaurant.active,
         menu=[MenuItemPublic(id=item.id, name=item.name, category=item.category) for item in menu],
         tags=[TagPublic(id=tag.id, label=tag.label, aspect=tag.aspect) for tag in tag_rows],
     )

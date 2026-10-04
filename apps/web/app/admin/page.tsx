@@ -32,6 +32,7 @@ function fallbackDetail(row: RestaurantSummary): AdminRestaurantDetail {
     created_at: "",
     menu: [],
     tags: [],
+    active: row.active !== false,
   };
 }
 
@@ -279,6 +280,18 @@ export default function AdminPage() {
               detail={card.detail}
               metrics={card.metrics}
               onAuthFailure={onAuthFailure}
+              onUpdated={(detail: AdminRestaurantDetail) => {
+                setCards((current: RestaurantCardData[]) =>
+                  current.map((card: RestaurantCardData) =>
+                    card.detail.id === detail.id ? { ...card, detail } : card,
+                  ),
+                );
+              }}
+              onDeleted={(restaurantId: number) => {
+                setCards((current: RestaurantCardData[]) =>
+                  current.filter((card: RestaurantCardData) => card.detail.id !== restaurantId),
+                );
+              }}
             />
           ))}
         </section>

@@ -1,6 +1,14 @@
 import { API_URL, ApiError } from "./api";
 import type { AuthUser } from "./auth";
-import type { AdminRestaurantDetail, OwnerMetrics, RestaurantSummary } from "./types";
+import type {
+  AdminRestaurantDetail,
+  MenuItemPublic,
+  OwnerMetrics,
+  RestaurantDeletedResponse,
+  RestaurantStatusResponse,
+  RestaurantSummary,
+  TagPublic,
+} from "./types";
 
 async function parseError(res: Response): Promise<ApiError> {
   try {
@@ -125,4 +133,66 @@ export async function fetchOwnerMetrics(token: string, restaurantId?: number): P
     throw await parseError(res);
   }
   return res.json() as Promise<OwnerMetrics>;
+}
+
+export async function replaceMenuItems(
+  token: string,
+  restaurantId: number,
+  items: { name: string; category: string }[],
+): Promise<MenuItemPublic[]> {
+  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}/menu-items`, {
+    method: "PATCH",
+    headers: authHeader(token),
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+  return res.json() as Promise<MenuItemPublic[]>;
+}
+
+export async function replaceTags(
+  token: string,
+  restaurantId: number,
+  tags: { aspect: string; label: string }[],
+): Promise<TagPublic[]> {
+  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}/tags`, {
+    method: "PATCH",
+    headers: authHeader(token),
+    body: JSON.stringify({ tags }),
+  });
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+  return res.json() as Promise<TagPublic[]>;
+}
+
+export async function setRestaurantStatus(
+  token: string,
+  restaurantId: number,
+  active: boolean,
+): Promise<RestaurantStatusResponse> {
+  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}/status`, {
+    method: "PATCH",
+    headers: authHeader(token),
+    body: JSON.stringify({ active }),
+  });
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+  return res.json() as Promise<RestaurantStatusResponse>;
+}
+
+export async function deleteRestaurant(
+  token: string,
+  restaurantId: number,
+): Promise<RestaurantDeletedResponse> {
+  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}`, {
+    method: "DELETE",
+    headers: authHeader(token),
+  });
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+  return res.json() as Promise<RestaurantDeletedResponse>;
 }

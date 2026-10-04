@@ -14,6 +14,7 @@ def test_get_restaurant_returns_public_config(client: TestClient) -> None:
     assert body["name"] == "Demo Cafe"
     assert body["google_place_id"]
     assert body["brand_color"] == "#C45C26"
+    assert body["active"] is True
     assert [item["name"] for item in body["menu"]] == ["Butter chicken"]
     assert {tag["aspect"] for tag in body["tags"]} == {"food", "service"}
     assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"

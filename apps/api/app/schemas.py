@@ -58,14 +58,14 @@ class MenuItemCreate(BaseModel):
 
 class TagCreate(BaseModel):
     label: str
-    aspect: str = Field(pattern="^(food|service|ambience|value)$")
+    aspect: str = Field(min_length=1, max_length=50)
 
-    @field_validator("label")
+    @field_validator("label", "aspect")
     @classmethod
-    def clean_label(cls, value: str) -> str:
+    def clean_tag_fields(cls, value: str) -> str:
         cleaned = strip_html(value)
         if not cleaned:
-            raise ValueError("label is required")
+            raise ValueError("field cannot be empty")
         return cleaned
 
 
@@ -144,6 +144,7 @@ class RestaurantPublic(BaseModel):
     brand_color: str | None
     logo_url: str | None
     default_lang: str
+    active: bool = True
     menu: list[MenuItemPublic]
     tags: list[TagPublic]
 
@@ -335,6 +336,7 @@ class RestaurantSummary(BaseModel):
     name: str
     google_place_id: str
     brand_color: str | None
+    active: bool = True
 
 
 class AdminRestaurantDetail(BaseModel):
@@ -344,8 +346,56 @@ class AdminRestaurantDetail(BaseModel):
     google_place_id: str
     brand_color: str | None
     created_at: str
+    active: bool = True
     menu: list[MenuItemPublic]
     tags: list[TagPublic]
+
+
+class MenuItemReplaceItem(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    category: str = Field(min_length=1, max_length=100)
+
+    @field_validator("name", "category")
+    @classmethod
+    def clean_menu_replace(cls, value: str) -> str:
+        cleaned = strip_html(value)
+        if not cleaned:
+            raise ValueError("field cannot be empty")
+        return cleaned
+
+
+class MenuItemsReplaceBody(BaseModel):
+    items: list[MenuItemReplaceItem] = Field(max_length=100)
+
+
+class TagReplaceItem(BaseModel):
+    aspect: str = Field(min_length=1, max_length=50)
+    label: str = Field(min_length=1, max_length=50)
+
+    @field_validator("aspect", "label")
+    @classmethod
+    def clean_tag_replace(cls, value: str) -> str:
+        cleaned = strip_html(value)
+        if not cleaned:
+            raise ValueError("field cannot be empty")
+        return cleaned
+
+
+class TagsReplaceBody(BaseModel):
+    tags: list[TagReplaceItem] = Field(max_length=200)
+
+
+class RestaurantStatusBody(BaseModel):
+    active: bool
+
+
+class RestaurantStatusResponse(BaseModel):
+    id: int
+    active: bool
+
+
+class RestaurantDeletedResponse(BaseModel):
+    deleted: bool = True
 
 
 class FunnelCounts(BaseModel):

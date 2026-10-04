@@ -17,6 +17,7 @@ export type RestaurantPublic = {
   brand_color: string | null;
   logo_url: string | null;
   default_lang: string;
+  active: boolean;
   menu: MenuItemPublic[];
   tags: TagPublic[];
 };
@@ -58,6 +59,7 @@ export type RestaurantSummary = {
   name: string;
   google_place_id: string;
   brand_color: string | null;
+  active: boolean;
 };
 
 export type AdminRestaurantDetail = {
@@ -67,9 +69,19 @@ export type AdminRestaurantDetail = {
   google_place_id: string;
   brand_color: string | null;
   created_at: string;
+  active: boolean;
   menu: MenuItemPublic[];
   tags: TagPublic[];
 };
+
+export interface RestaurantStatusResponse {
+  id: number;
+  active: boolean;
+}
+
+export interface RestaurantDeletedResponse {
+  deleted: boolean;
+}
 
 export type OwnerMetrics = {
   restaurant_id: number;

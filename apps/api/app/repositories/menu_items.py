@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models import MenuItem
@@ -25,3 +25,8 @@ def create_many(db: Session, restaurant_id: int, items: list[MenuItemCreate]) ->
     db.add_all(rows)
     db.flush()
     return rows
+
+
+def replace_for_restaurant(db: Session, restaurant_id: int, items: list[MenuItemCreate]) -> list[MenuItem]:
+    db.execute(delete(MenuItem).where(MenuItem.restaurant_id == restaurant_id))
+    return create_many(db, restaurant_id, items)

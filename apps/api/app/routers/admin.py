@@ -9,7 +9,22 @@ from app.errors import ApiError
 from app.passwords import hash_password
 from app.qr import qr_png, qr_svg, review_url
 from app.repositories import menu_items, restaurants, tables, tags, users as user_repo
-from app.schemas import AdminRestaurantBody, AdminRestaurantDetail, MenuItemPublic, RestaurantCreate, RestaurantSummary, TagPublic, UserCreate
+from app.schemas import (
+    AdminRestaurantBody,
+    AdminRestaurantDetail,
+    MenuItemCreate,
+    MenuItemPublic,
+    MenuItemsReplaceBody,
+    RestaurantCreate,
+    RestaurantDeletedResponse,
+    RestaurantStatusBody,
+    RestaurantStatusResponse,
+    RestaurantSummary,
+    TagCreate,
+    TagPublic,
+    TagsReplaceBody,
+    UserCreate,
+)
 from app.slug import unique_slug
 
 router = APIRouter(prefix="/api/admin")
@@ -28,6 +43,7 @@ def list_restaurants(
             name=row.name,
             google_place_id=row.google_place_id,
             brand_color=row.brand_color,
+            active=row.active,
         )
         for row in rows
     ]
@@ -76,6 +92,7 @@ def create_restaurant(
         name=restaurant.name,
         google_place_id=restaurant.google_place_id,
         brand_color=restaurant.brand_color,
+        active=restaurant.active,
     )
 
 
@@ -98,6 +115,7 @@ def get_restaurant(
         google_place_id=restaurant.google_place_id,
         brand_color=restaurant.brand_color,
         created_at=created,
+        active=restaurant.active,
         menu=[MenuItemPublic(id=item.id, name=item.name, category=item.category) for item in menu],
         tags=[TagPublic(id=tag.id, label=tag.label, aspect=tag.aspect) for tag in tag_rows],
     )
@@ -121,3 +139,67 @@ def restaurant_qr(
             media_type="image/png",
         )
     return Response(content=qr_svg(url), media_type="image/svg+xml")
+
+
+def _require_restaurant(db: Session, restaurant_id: int):
+    from app.models import Restaurant
+
+    restaurant = restaurants.get_by_id(db, restaurant_id)
+    if restaurant is None:
+        raise ApiError(404, "RESTAURANT_NOT_FOUND", "Restaurant not found")
+    return restaurant
+
+
+@router.patch("/restaurants/{restaurant_id}/menu-items", response_model=list[MenuItemPublic])
+def replace_menu_items(
+    restaurant_id: int,
+    body: MenuItemsReplaceBody,
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[MenuItemPublic]:
+    restaurant = _require_restaurant(db, restaurant_id)
+    rows = menu_items.replace_for_restaurant(
+        db,
+        restaurant.id,
+        [MenuItemCreate(name=item.name, category=item.category, active=True) for item in body.items],
+    )
+    return [MenuItemPublic(id=item.id, name=item.name, category=item.category) for item in rows]
+
+
+@router.patch("/restaurants/{restaurant_id}/tags", response_model=list[TagPublic])
+def replace_tags(
+    restaurant_id: int,
+    body: TagsReplaceBody,
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[TagPublic]:
+    restaurant = _require_restaurant(db, restaurant_id)
+    rows = tags.replace_for_restaurant(
+        db,
+        restaurant.id,
+        [TagCreate(label=tag.label, aspect=tag.aspect) for tag in body.tags],
+    )
+    return [TagPublic(id=tag.id, label=tag.label, aspect=tag.aspect) for tag in rows]
+
+
+@router.patch("/restaurants/{restaurant_id}/status", response_model=RestaurantStatusResponse)
+def set_restaurant_status(
+    restaurant_id: int,
+    body: RestaurantStatusBody,
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> RestaurantStatusResponse:
+    restaurant = _require_restaurant(db, restaurant_id)
+    restaurants.set_active(db, restaurant, body.active)
+    return RestaurantStatusResponse(id=restaurant.id, active=restaurant.active)
+
+
+@router.delete("/restaurants/{restaurant_id}", response_model=RestaurantDeletedResponse)
+def delete_restaurant(
+    restaurant_id: int,
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> RestaurantDeletedResponse:
+    restaurant = _require_restaurant(db, restaurant_id)
+    restaurants.delete_restaurant(db, restaurant)
+    return RestaurantDeletedResponse(deleted=True)

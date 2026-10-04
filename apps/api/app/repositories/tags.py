@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models import TagBank
@@ -18,3 +18,8 @@ def create_many(db: Session, restaurant_id: int, tags: list[TagCreate]) -> list[
     db.add_all(rows)
     db.flush()
     return rows
+
+
+def replace_for_restaurant(db: Session, restaurant_id: int, tags: list[TagCreate]) -> list[TagBank]:
+    db.execute(delete(TagBank).where(TagBank.restaurant_id == restaurant_id))
+    return create_many(db, restaurant_id, tags)

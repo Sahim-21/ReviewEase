@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func, true
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.types import PortableJSON
@@ -34,6 +34,7 @@ class Restaurant(Base):
     brand_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     default_lang: Mapped[str] = mapped_column(String(16), default="en")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     menu_items: Mapped[list["MenuItem"]] = relationship(back_populates="restaurant")
@@ -51,7 +52,7 @@ class MenuItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(200))
-    category: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     restaurant: Mapped[Restaurant] = relationship(back_populates="menu_items")
@@ -59,17 +60,11 @@ class MenuItem(Base):
 
 class TagBank(Base):
     __tablename__ = "tag_bank"
-    __table_args__ = (
-        CheckConstraint(
-            "aspect IN ('food', 'service', 'ambience', 'value')",
-            name="ck_tag_bank_aspect",
-        ),
-    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True)
     label: Mapped[str] = mapped_column(String(80))
-    aspect: Mapped[str] = mapped_column(String(32))
+    aspect: Mapped[str] = mapped_column(String(50))
 
     restaurant: Mapped[Restaurant] = relationship(back_populates="tags")
 

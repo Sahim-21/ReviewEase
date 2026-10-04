@@ -126,3 +126,55 @@ def test_owner_metrics_scoped_by_restaurant(client: TestClient, db: Session) -> 
     )
     assert other_q.status_code == 403
     assert other_q.json()["detail"]["code"] == "SCOPE_DENIED"
+
+
+def test_admin_replaces_menu_tags_status_and_delete(client: TestClient, db: Session) -> None:
+    _user(db, email="admin@example.com", password="correct-horse", role="admin", restaurant_id=None)
+    token = _login(client, "admin@example.com", "correct-horse")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = client.post(
+        "/api/admin/restaurants",
+        headers=headers,
+        json={"name": "Edit Lab", "google_place_id": "ChIJEditLab000000000000000"},
+    )
+    restaurant_id = created.json()["id"]
+
+    menu = client.patch(
+        f"/api/admin/restaurants/{restaurant_id}/menu-items",
+        headers=headers,
+        json={"items": [{"name": "Idli", "category": "breakfast"}]},
+    )
+    assert menu.status_code == 200, menu.text
+    assert menu.json()[0]["name"] == "Idli"
+
+    tags_res = client.patch(
+        f"/api/admin/restaurants/{restaurant_id}/tags",
+        headers=headers,
+        json={"tags": [{"aspect": "food", "label": "Crisp"}]},
+    )
+    assert tags_res.status_code == 200, tags_res.text
+    assert tags_res.json()[0]["label"] == "Crisp"
+
+    paused = client.patch(
+        f"/api/admin/restaurants/{restaurant_id}/status",
+        headers=headers,
+        json={"active": False},
+    )
+    assert paused.status_code == 200
+    assert paused.json() == {"id": restaurant_id, "active": False}
+    public = client.get(f"/api/r/{created.json()['slug']}")
+    assert public.status_code == 200
+    assert public.json()["active"] is False
+
+    bad = client.patch(
+        f"/api/admin/restaurants/{restaurant_id}/menu-items",
+        headers=headers,
+        json={"items": [{"name": "", "category": "x"}]},
+    )
+    assert bad.status_code == 422
+
+    deleted = client.delete(f"/api/admin/restaurants/{restaurant_id}", headers=headers)
+    assert deleted.status_code == 200
+    assert deleted.json() == {"deleted": True}
+    missing = client.get(f"/api/admin/restaurants/{restaurant_id}", headers=headers)
+    assert missing.status_code == 404

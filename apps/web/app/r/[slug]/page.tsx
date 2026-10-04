@@ -17,6 +17,9 @@ export async function generateMetadata({
   const { slug } = await params;
   try {
     const restaurant = await getRestaurant(slug);
+    if (restaurant.active === false) {
+      return { title: "Not available" };
+    }
     return {
       title: restaurant.name,
       description: `Tell ${restaurant.name} how your visit went. Phrase your own notes, then post on Google yourself.`,
@@ -32,6 +35,19 @@ export default async function RestaurantFlowPage({ params, searchParams }: Resta
   const table = Array.isArray(query.t) ? query.t[0] : query.t;
   try {
     const restaurant = await getRestaurant(slug);
+    if (restaurant.active === false) {
+      return (
+        <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-3 p-6 text-center">
+          <p className="text-5xl" aria-hidden>
+            🔧
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Not available right now</h1>
+          <p className="text-sm text-neutral-600">
+            This restaurant&apos;s review service is temporarily unavailable. Please check back later.
+          </p>
+        </main>
+      );
+    }
     return <DinerFlow restaurant={restaurant} table={table} />;
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
