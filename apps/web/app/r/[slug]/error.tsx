@@ -10,6 +10,7 @@ export default function RestaurantLoadError({
 }) {
   return (
     <ErrorScreen
+      emoji="📡"
       title="Can’t load this restaurant"
       message="Check your connection and try the QR code again."
       onRetry={reset}

@@ -74,3 +74,49 @@ def test_complete_saves_text_and_logs_events(client: TestClient, db: Session) ->
     assert body["clicked_google"] is True
     types = [row.type for row in db.query(Event).filter(Event.session_id == started["id"]).all()]
     assert types == [SCAN, COMPLETE, COPY, OPEN_GOOGLE]
+
+
+def _draft(client: TestClient, started: dict[str, object], **extra: object) -> dict[str, object]:
+    response = client.post(
+        f"/api/sessions/{started['id']}/draft",
+        headers={"Authorization": f"Bearer {started['token']}"},
+        json={"items": ["Butter chicken"], "tone": "casual", "lang": "English", **extra},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_draft_stores_overall_stars_and_fills_aspects(client: TestClient, db: Session) -> None:
+    started = _start(client)
+    _draft(client, started, overall_rating=4, ratings={"service": 2})
+    row = db.get(DinerSession, started["id"])
+    assert row is not None
+    assert row.overall_rating == 4
+    assert row.ratings == {"service": 2, "food": 4, "ambience": 4, "value": 4}
+
+
+def test_draft_derives_overall_from_aspect_ratings(client: TestClient, db: Session) -> None:
+    started = _start(client)
+    _draft(client, started, ratings={"food": 5, "service": 3, "ambience": 3, "value": 5})
+    row = db.get(DinerSession, started["id"])
+    assert row is not None
+    assert row.overall_rating == 4
+
+
+def test_draft_rejects_out_of_range_stars(client: TestClient) -> None:
+    started = _start(client)
+    for stars in (0, 6):
+        response = client.post(
+            f"/api/sessions/{started['id']}/draft",
+            headers={"Authorization": f"Bearer {started['token']}"},
+            json={"items": [], "overall_rating": stars},
+        )
+        assert response.status_code == 422
+
+
+def test_draft_without_ratings_leaves_overall_empty(client: TestClient, db: Session) -> None:
+    started = _start(client)
+    _draft(client, started)
+    row = db.get(DinerSession, started["id"])
+    assert row is not None
+    assert row.overall_rating is None

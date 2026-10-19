@@ -30,7 +30,7 @@ def _input(**overrides: object) -> DraftInput:
 
 
 def test_strips_markdown_and_quotes() -> None:
-    raw = '```markdown\n> **"I had butter chicken and it matched my rating."**\n```'
+    raw = '```markdown\n> **"I had butter chicken and it was flavourful and filling."**\n```'
     cleaned = clean_output(raw)
     assert cleaned.startswith("I had butter chicken")
     assert "*" not in cleaned
@@ -39,32 +39,32 @@ def test_strips_markdown_and_quotes() -> None:
 
 
 def test_accepts_grounded_review() -> None:
-    text = _repeat("I had butter chicken and it matched my rating.", 48)
+    text = _repeat("I had butter chicken and it was flavourful and filling.", 48)
     assert grounding_check(text, _input())
 
 
 def test_accepts_fuzzy_spelling_of_selected_dish() -> None:
-    text = _repeat("I had Butter Chikn and it matched my rating.", 48)
+    text = _repeat("I had Butter Chikn and it was flavourful and filling.", 48)
     assert extra_menu_mentions(text, _input()) == []
     assert grounding_check(text, _input())
 
 
 def test_rejects_hallucinated_menu_item_not_selected() -> None:
-    text = "I also had garlic naan. " + _repeat("I had butter chicken and it matched my rating.", 44)
+    text = "I also had garlic naan. " + _repeat("I had butter chicken and it was flavourful and filling.", 44)
     extras = extra_menu_mentions(text, _input())
     assert "garlic naan" in extras
     assert not grounding_check(text, _input())
 
 
 def test_rejects_fuzzy_hallucinated_dish() -> None:
-    text = "The garlic nan was on the table. " + _repeat("I had butter chicken and it matched my rating.", 44)
+    text = "The garlic nan was on the table. " + _repeat("I had butter chicken and it was flavourful and filling.", 44)
     extras = extra_menu_mentions(text, _input())
     assert extras
     assert not grounding_check(text, _input())
 
 
 def test_rejects_low_rating_with_strong_praise() -> None:
-    text = _repeat("I had butter chicken and it matched my rating.", 45) + " It was amazing today."
+    text = _repeat("I had butter chicken and it was flavourful and filling.", 45) + " It was amazing today."
     low = _input(ratings={"food": 1, "service": 2, "ambience": 1, "value": 2})
     assert not grounding_check(text, low)
 
@@ -76,14 +76,25 @@ def test_accepts_low_rating_without_praise() -> None:
 
 
 def test_rejects_high_rating_with_strong_negative_not_in_input() -> None:
-    text = _repeat("I had butter chicken and it matched my rating.", 45) + " Service felt terrible today."
+    text = _repeat("I had butter chicken and it was flavourful and filling.", 45) + " Service felt terrible today."
     assert not grounding_check(text, _input())
 
 
-def test_allows_negative_word_present_in_customer_input() -> None:
+def test_rejects_harsh_wording_even_when_the_diner_used_it() -> None:
     text = _repeat("I had butter chicken and the service felt terrible.", 48)
-    allowed = _input(raw_text="service felt terrible")
-    assert grounding_check(text, allowed)
+    assert not grounding_check(text, _input(raw_text="service felt terrible"))
+
+
+def test_rejects_drafts_that_mention_ratings_or_tags() -> None:
+    for leak in ("I gave it 4/5 overall.", "The tag I picked says fresh.", "My rating was high."):
+        text = _repeat("I had butter chicken and it was flavourful and filling.", 44) + " " + leak
+        assert not grounding_check(text, _input()), leak
+
+
+def test_strips_reasoning_blocks() -> None:
+    raw = "<think>they ordered butter chicken, plan the review</think>I had butter chicken."
+    assert clean_output(raw) == "I had butter chicken."
+    assert clean_output("<think>never closed and cut off") == ""
 
 
 def test_rejects_out_of_range_word_count() -> None:
@@ -94,7 +105,7 @@ def test_rejects_out_of_range_word_count() -> None:
 
 
 def test_rejects_repeated_opening_ngram_against_last_drafts() -> None:
-    text = _repeat("I had butter chicken and it matched my rating.", 48)
+    text = _repeat("I had butter chicken and it was flavourful and filling.", 48)
     recent = [
         "I had butter chicken last week and said it was fine.",
         "Service felt slow from the start of the meal.",

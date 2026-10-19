@@ -1,6 +1,22 @@
 import type { Metadata, Viewport } from "next";
+import { Bricolage_Grotesque, DM_Sans } from "next/font/google";
+
 import { PwaRegister } from "@/components/pwa/PwaRegister";
 import "./globals.css";
+
+const display = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-bricolage",
+  display: "swap",
+});
+
+const sans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "ReviewEase",
@@ -32,7 +48,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${sans.variable}`}>
       <body className="antialiased">
         <PwaRegister />
         {children}

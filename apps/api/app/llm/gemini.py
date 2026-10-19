@@ -1,5 +1,7 @@
 import httpx
 
+from app.llm.protocol import RateLimited
+
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 
@@ -53,6 +55,8 @@ class GeminiProvider:
                 },
             },
         )
+        if response.status_code == 429:
+            raise RateLimited("gemini")
         response.raise_for_status()
         content = response.json()["candidates"][0]["content"]["parts"][0]["text"]
         if not isinstance(content, str) or not content.strip():

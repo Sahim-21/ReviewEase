@@ -82,6 +82,12 @@ class DiningTable(Base):
 
 class DinerSession(Base):
     __tablename__ = "sessions"
+    __table_args__ = (
+        CheckConstraint(
+            "overall_rating IS NULL OR (overall_rating >= 1 AND overall_rating <= 5)",
+            name="ck_sessions_overall_rating",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id"), index=True)
@@ -90,6 +96,7 @@ class DinerSession(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     items: Mapped[Any | None] = mapped_column(PortableJSON, nullable=True)
     ratings: Mapped[Any | None] = mapped_column(PortableJSON, nullable=True)
+    overall_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tags: Mapped[Any | None] = mapped_column(PortableJSON, nullable=True)
     raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     tone: Mapped[str | None] = mapped_column(String(32), nullable=True)

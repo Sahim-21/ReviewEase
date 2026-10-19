@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import { DinerFlow } from "@/components/flow/DinerFlow";
+import { ErrorScreen } from "@/components/ui/ErrorScreen";
 import { ApiError, getRestaurant } from "@/lib/api";
 
 type RestaurantPageProps = {
@@ -37,15 +38,11 @@ export default async function RestaurantFlowPage({ params, searchParams }: Resta
     const restaurant = await getRestaurant(slug);
     if (restaurant.active === false) {
       return (
-        <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-5xl" aria-hidden>
-            🔧
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">Not available right now</h1>
-          <p className="text-sm text-neutral-600">
-            This restaurant&apos;s review service is temporarily unavailable. Please check back later.
-          </p>
-        </main>
+        <ErrorScreen
+          emoji="⏸️"
+          title="This restaurant isn't taking reviews right now"
+          message="Please check back later."
+        />
       );
     }
     return <DinerFlow restaurant={restaurant} table={table} />;
@@ -54,10 +51,11 @@ export default async function RestaurantFlowPage({ params, searchParams }: Resta
       notFound();
     }
     return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-3 p-6">
-        <h1 className="text-xl font-semibold">Can’t load this restaurant</h1>
-        <p className="text-sm text-neutral-600">Check your connection and try the QR code again.</p>
-      </main>
+      <ErrorScreen
+        emoji="📡"
+        title="Can’t load this restaurant"
+        message="Check your connection and try the QR code again."
+      />
     );
   }
 }

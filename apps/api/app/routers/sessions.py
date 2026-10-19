@@ -92,6 +92,7 @@ async def create_draft(
         SessionDraftUpdate(
             items=item_names,
             ratings=body.ratings,
+            overall_rating=body.overall_rating,
             tags=tag_labels,
             raw_text=body.raw_text,
             tone=tone,

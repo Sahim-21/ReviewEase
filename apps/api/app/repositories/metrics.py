@@ -5,7 +5,61 @@ from sqlalchemy.orm import Session
 
 from app.event_types import COPY, GENERATE, OPEN_GOOGLE, SCAN
 from app.models import DinerSession, Event, PrivateFeedback, Restaurant
-from app.schemas import DayCount, FeedbackItem, FunnelCounts, OwnerMetrics
+from app.schemas import AttentionItem, DayCount, FeedbackItem, FunnelCounts, OwnerMetrics, RatingStats
+
+
+LOW_STARS = 2
+ATTENTION_LIMIT = 20
+
+
+def _iso(value: datetime | None) -> str:
+    return value.isoformat() if value else ""
+
+
+def _attention(db: Session, restaurant_id: int, feedback_rows: list[PrivateFeedback]) -> list[AttentionItem]:
+    """Low-star private notes plus low-star visits that left no note, newest first."""
+    items: list[tuple[datetime | None, AttentionItem]] = []
+    noted_sessions = {row.session_id for row in feedback_rows if row.session_id is not None}
+    for row in feedback_rows:
+        if row.rating is not None and row.rating <= LOW_STARS:
+            items.append(
+                (
+                    row.created_at,
+                    AttentionItem(
+                        kind="feedback",
+                        id=row.id,
+                        rating=row.rating,
+                        message=row.message,
+                        contact=row.contact,
+                        created_at=_iso(row.created_at),
+                    ),
+                )
+            )
+    sessions = db.scalars(
+        select(DinerSession)
+        .where(DinerSession.restaurant_id == restaurant_id, DinerSession.overall_rating <= LOW_STARS)
+        .order_by(DinerSession.started_at.desc())
+        .limit(ATTENTION_LIMIT * 2)
+    ).all()
+    for row in sessions:
+        if row.id in noted_sessions:
+            continue
+        dishes = [str(name) for name in row.items] if isinstance(row.items, list) else []
+        items.append(
+            (
+                row.started_at,
+                AttentionItem(
+                    kind="session",
+                    id=row.id,
+                    rating=row.overall_rating,
+                    items=dishes,
+                    note=row.raw_text or None,
+                    created_at=_iso(row.started_at),
+                ),
+            )
+        )
+    items.sort(key=lambda pair: pair[0].timestamp() if pair[0] else 0.0, reverse=True)
+    return [item for _, item in items[:ATTENTION_LIMIT]]
 
 
 def owner_metrics(db: Session, restaurant_id: int, *, days: int = 14) -> OwnerMetrics:
@@ -83,10 +137,28 @@ def owner_metrics(db: Session, restaurant_id: int, *, days: int = 14) -> OwnerMe
         )
         for row in feedback_rows
     ]
+    attention = _attention(db, restaurant_id, feedback_rows)
+    star_rows = db.execute(
+        select(DinerSession.overall_rating, func.count())
+        .where(DinerSession.restaurant_id == restaurant_id, DinerSession.overall_rating.is_not(None))
+        .group_by(DinerSession.overall_rating)
+    ).all()
+    distribution = [0, 0, 0, 0, 0]
+    for stars, total in star_rows:
+        if 1 <= int(stars) <= 5:
+            distribution[int(stars) - 1] = int(total)
+    rated = sum(distribution)
+    ratings = RatingStats(
+        count=rated,
+        average=round(sum((i + 1) * n for i, n in enumerate(distribution)) / rated, 2) if rated else None,
+        distribution=distribution,
+    )
     return OwnerMetrics(
         restaurant_id=restaurant.id,
         restaurant_name=restaurant.name,
         funnel=funnel,
         daily=daily,
         feedback=feedback,
+        ratings=ratings,
+        attention=attention,
     )

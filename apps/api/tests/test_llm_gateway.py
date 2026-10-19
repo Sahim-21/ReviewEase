@@ -3,7 +3,7 @@ import asyncio
 from app.config import settings
 from app.llm.chain import build_providers
 from app.llm.gateway import draft_review
-from app.llm.template import template_draft
+from app.llm.protocol import RateLimited
 from app.llm.schemas import DraftInput
 
 
@@ -49,7 +49,7 @@ def _sample() -> DraftInput:
 
 
 def _ok() -> str:
-    return _repeat("I had butter chicken and it matched my rating.", 48)
+    return _repeat("I had butter chicken and it was flavourful and filling.", 48)
 
 
 def test_uses_first_provider_when_grounded() -> None:
@@ -71,14 +71,46 @@ def test_retries_once_with_lower_temperature_then_accepts() -> None:
     assert groq.temperatures == [0.8, 0.5]
 
 
-def test_falls_through_to_next_provider() -> None:
-    groq = Scripted("groq", [TimeoutError("slow"), TimeoutError("slow")])
+def test_rejected_draft_is_retried_with_the_reason() -> None:
+    seen: list[str] = []
+
+    class Recorder(Scripted):
+        async def generate(self, system: str, user: str, *, max_tokens: int, temperature: float) -> str:
+            seen.append(user)
+            return await super().generate(system, user, max_tokens=max_tokens, temperature=temperature)
+
+    groq = Recorder("groq", ["too short", _ok()])
+    asyncio.run(draft_review(_sample(), providers=[groq], temperature=0.8, style_hint="start with the vibe"))
+    assert "rejected because" not in seen[0]
+    assert "rejected because" in seen[1]
+    assert "40-120 words" in seen[1]
+
+
+def test_rate_limit_moves_on_without_retrying_the_same_provider() -> None:
+    groq = Scripted("groq", [RateLimited("groq", 11.0), _ok()])
     gemini = Scripted("gemini", [_ok()])
     draft = asyncio.run(
         draft_review(_sample(), providers=[groq, gemini], temperature=0.8, style_hint="start with the dish")
     )
     assert draft.provider == "gemini"
-    assert groq.temperatures == [0.8, 0.5]
+    assert groq.temperatures == [0.8]
+
+
+def test_rate_limit_everywhere_still_returns_a_template_draft() -> None:
+    groq = Scripted("groq", [RateLimited("groq")])
+    draft = asyncio.run(draft_review(_sample(), providers=[groq], temperature=0.8, style_hint="start with the dish"))
+    assert draft.provider == "template"
+    assert draft.text.strip()
+
+
+def test_falls_through_to_next_provider() -> None:
+    groq = Scripted("groq", [TimeoutError("slow"), TimeoutError("slow"), TimeoutError("slow")])
+    gemini = Scripted("gemini", [_ok()])
+    draft = asyncio.run(
+        draft_review(_sample(), providers=[groq, gemini], temperature=0.8, style_hint="start with the dish")
+    )
+    assert draft.provider == "gemini"
+    assert groq.temperatures == [0.8, 0.5, 0.2]
     assert gemini.temperatures == [0.8]
 
 
@@ -94,7 +126,8 @@ def test_timeout_then_template() -> None:
         draft_review(_sample(), providers=[Slow()], timeout=0.01, temperature=0.8, style_hint="start with the dish")
     )
     assert draft.provider == "template"
-    assert draft.text == template_draft(_sample())
+    assert draft.text.strip()
+    assert "garlic naan" not in draft.text
 
 
 def test_template_when_chain_never_grounds() -> None:
@@ -106,19 +139,19 @@ def test_template_when_chain_never_grounds() -> None:
 
 def test_hallucinated_dish_retries_then_next_provider() -> None:
     hallucinated = "I had garlic naan as well. " + _ok()
-    groq = Scripted("groq", [hallucinated, hallucinated])
+    groq = Scripted("groq", [hallucinated, hallucinated, hallucinated])
     gemini = Scripted("gemini", [_ok()])
     draft = asyncio.run(
         draft_review(_sample(), providers=[groq, gemini], temperature=0.8, style_hint="start with the dish")
     )
-    assert groq.temperatures == [0.8, 0.5]
+    assert groq.temperatures == [0.8, 0.5, 0.2]
     assert draft.provider == "gemini"
 
 
 def test_low_rating_praise_falls_to_template() -> None:
     praise = _repeat("I had butter chicken and it was amazing.", 48)
-    groq = Scripted("groq", [praise, praise])
-    gemini = Scripted("gemini", [praise, praise])
+    groq = Scripted("groq", [praise, praise, praise])
+    gemini = Scripted("gemini", [praise, praise, praise])
     inp = DraftInput(
         items=["butter chicken"],
         ratings={"food": 1, "service": 1},
@@ -134,8 +167,8 @@ def test_low_rating_praise_falls_to_template() -> None:
 
 
 def test_repeated_opening_is_treated_as_grounding_failure() -> None:
-    groq = Scripted("groq", [_ok(), _ok()])
-    gemini = Scripted("gemini", [_repeat("The visit felt flavourful and the butter chicken matched.", 48)])
+    groq = Scripted("groq", [_ok(), _ok(), _ok()])
+    gemini = Scripted("gemini", [_repeat("The visit felt flavourful and the butter chicken stood out.", 48)])
     recent = ["I had butter chicken last week and said it was fine."]
     draft = asyncio.run(
         draft_review(
@@ -146,7 +179,7 @@ def test_repeated_opening_is_treated_as_grounding_failure() -> None:
             recent_drafts=recent,
         )
     )
-    assert groq.temperatures == [0.8, 0.5]
+    assert groq.temperatures == [0.8, 0.5, 0.2]
     assert draft.provider == "gemini"
 
 

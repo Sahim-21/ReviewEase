@@ -51,7 +51,7 @@ export type FeedbackResponse = {
   submitted: boolean;
 };
 
-export type FlowStep = "meal" | "tags" | "notes" | "review" | "thanks";
+export type FlowStep = "meal" | "stars" | "tags" | "notes" | "review" | "thanks";
 
 export type RestaurantSummary = {
   id: number;
@@ -101,4 +101,21 @@ export type OwnerMetrics = {
     contact: string | null;
     created_at: string;
   }[];
+  /** Low-star (1-2) private notes and visits that need the owner's attention, newest first. */
+  attention?: {
+    kind: "feedback" | "session";
+    id: number;
+    rating: number | null;
+    message: string | null;
+    items: string[];
+    note: string | null;
+    contact: string | null;
+    created_at: string;
+  }[];
+  /** Overall star ratings given by diners. Index 0 of `distribution` is 1 star, index 4 is 5 stars. */
+  ratings?: {
+    count: number;
+    average: number | null;
+    distribution: number[];
+  };
 };

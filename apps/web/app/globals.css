@@ -1,20 +1,280 @@
 @import "tailwindcss";
 
+/*
+ * ReviewEase design system — "Warm Chunky Pop".
+ * Everything is derived from ONE variable, --brand, which each restaurant
+ * overrides at runtime (see lib/color.ts). Never hardcode a brand colour.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
   --brand: #c45c26;
+  --on-brand: #ffffff;
+  --ink: #241e1c;
+  --pine: #2b593f;
+  --marigold: #eca824;
+  --danger: #ba1a1a;
+
+  --paper: color-mix(in srgb, var(--brand) 10%, white);
+  --card: color-mix(in srgb, var(--brand) 4%, white);
+  --tint: color-mix(in srgb, var(--brand) 12%, white);
+  --tint-strong: color-mix(in srgb, var(--brand) 22%, white);
+  --line: color-mix(in srgb, var(--brand) 30%, var(--ink));
+  --hairline: color-mix(in srgb, var(--brand) 22%, transparent);
+  --pop: color-mix(in srgb, var(--brand) 25%, var(--ink));
+  --muted: color-mix(in srgb, var(--ink) 68%, white);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-on-brand: var(--on-brand);
+  --color-ink: var(--ink);
+  --color-pine: var(--pine);
+  --color-marigold: var(--marigold);
+  --color-danger: var(--danger);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-tint: var(--tint);
+  --color-tint-strong: var(--tint-strong);
+  --color-line: var(--line);
+  --color-hairline: var(--hairline);
+  --color-muted: var(--muted);
+
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --shadow-pop: 0 6px 0 0 var(--pop);
+  --shadow-pop-lg: 0 10px 0 0 var(--pop);
+  --shadow-pop-sm: 0 4px 0 0 var(--pop);
+
+  --animate-pop-in: pop-in 0.55s var(--spring) both;
+  --animate-wobble: wobble 0.5s ease-in-out;
+  --animate-floaty: floaty 6s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-pulse-ring: pulse-ring 2s ease-in-out infinite;
+  --animate-dot-bounce: dot-bounce 0.8s ease-in-out infinite;
+  --animate-sheet-up: sheet-up 0.45s var(--spring) both;
+  --animate-fade-in: fade-in 0.25s ease-out both;
+}
+
+html {
+  background: var(--paper);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+}
+
+:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+
+/* ── Keyframes ───────────────────────────────────────────── */
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.6) rotate(-6deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes wobble {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-6deg); }
+  75% { transform: rotate(6deg); }
+}
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  50% { transform: translateY(-14px) rotate(calc(var(--r, 0deg) + 6deg)); }
+}
+@keyframes shimmer {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes pulse-ring {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.35); opacity: 0.3; }
+}
+@keyframes dot-bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(-9px); opacity: 1; }
+}
+@keyframes sheet-up {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes bar-grow {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+@layer components {
+  /* Laminated "sticker" card */
+  .sticker {
+    background: var(--card);
+    border: 2px solid var(--line);
+    border-radius: 1.75rem;
+    box-shadow: var(--shadow-pop);
+  }
+  .sticker-flat {
+    background: var(--card);
+    border: 2px solid var(--hairline);
+    border-radius: 1.5rem;
+  }
+
+  /* Tactile buttons: they sink 4px when pressed */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3.5rem;
+    padding: 0 1.5rem;
+    border-radius: 9999px;
+    border: 2px solid var(--line);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+    cursor: pointer;
+    transition:
+      transform 0.14s var(--spring),
+      box-shadow 0.14s ease,
+      opacity 0.2s ease;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .btn-primary {
+    background: var(--brand);
+    color: var(--on-brand);
+    box-shadow: var(--shadow-pop);
+  }
+  .btn-secondary {
+    background: var(--tint);
+    color: var(--ink);
+    box-shadow: var(--shadow-pop-sm);
+  }
+  .btn-danger {
+    background: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 60%, var(--ink));
+    color: #fff;
+    box-shadow: 0 5px 0 0 color-mix(in srgb, var(--danger) 55%, var(--ink));
+  }
+  .btn-sm {
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    font-size: 0.875rem;
+    box-shadow: 0 3px 0 0 var(--pop);
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 0 var(--pop);
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: 0 2px 0 0 var(--pop);
+  }
+
+  .link-quiet {
+    font-weight: 600;
+    color: var(--muted);
+    text-decoration: underline dotted;
+    text-underline-offset: 4px;
+    cursor: pointer;
+  }
+  .link-quiet:hover {
+    color: var(--ink);
+  }
+
+  /* Selection chips */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    border: 2px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 0.875rem;
+    font-weight: 700;
+    box-shadow: var(--shadow-pop-sm);
+    cursor: pointer;
+    transition:
+      transform 0.16s var(--spring),
+      box-shadow 0.16s ease,
+      background-color 0.16s ease;
+  }
+  .chip:active {
+    transform: translateY(3px) scale(0.97);
+    box-shadow: 0 1px 0 0 var(--pop);
+  }
+  .chip[aria-pressed="true"] {
+    background: var(--brand);
+    color: var(--on-brand);
+    transform: translateY(1px);
+    box-shadow: 0 3px 0 0 var(--pop);
+  }
+
+  /* Inputs */
+  .field {
+    width: 100%;
+    border: 2px solid var(--hairline);
+    border-radius: 1.25rem;
+    background: #fff;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    color: var(--ink);
+    outline: none;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.25s var(--spring);
+  }
+  .field::placeholder {
+    color: color-mix(in srgb, var(--ink) 45%, white);
+  }
+  .field:focus-visible {
+    outline: none;
+  }
+  .field:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 25%, transparent);
+  }
+
+  .eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+}
+
+/* Decorative blobs sitting behind a screen */
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  filter: blur(2px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -24,5 +284,6 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

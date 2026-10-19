@@ -115,83 +115,83 @@ export default function AdminRestaurantDetailPage() {
 
   if (!Number.isInteger(restaurantId) || restaurantId < 1) {
     return (
-      <main className="mx-auto max-w-3xl p-6">
-        <p className="text-sm text-red-700">Could not load restaurant info. Refresh to try again.</p>
+      <main className="mx-auto max-w-4xl p-5 sm:p-8">
+        <p className="text-sm font-medium text-danger">Could not load restaurant info. Refresh to try again.</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-8 p-6">
+    <main className="mx-auto flex min-h-dvh max-w-4xl flex-col gap-6 p-5 sm:gap-8 sm:p-8">
       <div>
-        <Link className="text-sm underline" href="/admin">
+        <Link className="link-quiet text-sm" href="/admin">
           Back
         </Link>
-        <p className="mt-3 text-sm text-neutral-600">
-          <Link className="underline" href="/admin">
+        <p className="mt-3 text-sm text-muted">
+          <Link className="link-quiet" href="/admin">
             Admin
           </Link>
           {" → "}
-          <Link className="underline" href="/admin">
+          <Link className="link-quiet" href="/admin">
             Restaurants
           </Link>
           {" → "}
           {detail?.name ?? "…"}
         </p>
-        <h1 className="mt-2 text-xl font-semibold">{detail?.name ?? "Restaurant"}</h1>
+        <h1 className="mt-2 font-display text-3xl font-extrabold tracking-tight">{detail?.name ?? "Restaurant"}</h1>
       </div>
 
-      <section className="rounded-2xl border border-neutral-200 p-4">
-        <h2 className="font-medium">Restaurant info</h2>
+      <section className="sticker-flat p-5">
+        <h2 className="font-display text-lg font-bold">Restaurant info</h2>
         {detailLoading ? (
-          <p className="mt-3 text-sm text-neutral-500">Loading…</p>
+          <p className="mt-3 text-sm text-muted">Loading…</p>
         ) : detailError || !detail ? (
-          <p className="mt-3 text-sm text-red-700">{detailError ?? "Could not load restaurant info. Refresh to try again."}</p>
+          <p className="mt-3 text-sm font-medium text-danger">{detailError ?? "Could not load restaurant info. Refresh to try again."}</p>
         ) : (
           <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-neutral-500">Name</dt>
-              <dd className="font-medium">{detail.name}</dd>
+              <dt className="text-muted">Name</dt>
+              <dd className="font-display text-lg font-bold">{detail.name}</dd>
             </div>
             <div>
-              <dt className="text-neutral-500">Slug</dt>
+              <dt className="text-muted">Slug</dt>
               <dd className="font-mono text-xs">reviewease.com/r/{detail.slug}</dd>
             </div>
             <div>
-              <dt className="text-neutral-500">Google Place ID</dt>
+              <dt className="text-muted">Google Place ID</dt>
               <dd className="break-all font-mono text-xs">{detail.google_place_id}</dd>
             </div>
             <div>
-              <dt className="text-neutral-500">Brand colour</dt>
+              <dt className="text-muted">Brand colour</dt>
               <dd className="mt-1 flex items-center gap-2">
                 <span
-                  className="h-6 w-6 rounded-md border border-black/10"
+                  className="h-6 w-6 rounded-lg border-2 border-line"
                   style={{ background: detail.brand_color || "#c45c26" }}
                 />
                 <span className="font-mono text-xs">{detail.brand_color || "—"}</span>
               </dd>
             </div>
             <div>
-              <dt className="text-neutral-500">Date added</dt>
+              <dt className="text-muted">Date added</dt>
               <dd>{formatAdded(detail.created_at)}</dd>
             </div>
           </dl>
         )}
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 p-4">
-        <h2 className="font-medium">Menu Items ({detail?.menu.length ?? 0})</h2>
+      <section className="sticker-flat p-5">
+        <h2 className="font-display text-lg font-bold">Menu Items ({detail?.menu.length ?? 0})</h2>
         {detailLoading ? (
-          <p className="mt-3 text-sm text-neutral-500">Loading…</p>
+          <p className="mt-3 text-sm text-muted">Loading…</p>
         ) : detailError || !detail ? (
-          <p className="mt-3 text-sm text-red-700">Could not load menu items. Refresh to try again.</p>
+          <p className="mt-3 text-sm font-medium text-danger">Could not load menu items. Refresh to try again.</p>
         ) : detail.menu.length === 0 ? (
-          <p className="mt-3 text-sm text-neutral-600">No menu items added yet</p>
+          <p className="mt-3 text-sm text-muted">No menu items added yet</p>
         ) : (
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             {[...menuGroups.entries()].map(([category, names]: [string, string[]]) => (
               <div key={category}>
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">{category}</p>
+                <p className="eyebrow">{category}</p>
                 <ul className="mt-1 list-disc pl-4 text-sm">
                   {names.map((name: string) => (
                     <li key={name}>{name}</li>
@@ -203,26 +203,26 @@ export default function AdminRestaurantDetailPage() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 p-4">
-        <h2 className="font-medium">Tag Bank ({detail?.tags.length ?? 0} tags)</h2>
+      <section className="sticker-flat p-5">
+        <h2 className="font-display text-lg font-bold">Tag Bank ({detail?.tags.length ?? 0} tags)</h2>
         {detailLoading ? (
-          <p className="mt-3 text-sm text-neutral-500">Loading…</p>
+          <p className="mt-3 text-sm text-muted">Loading…</p>
         ) : detailError || !detail ? (
-          <p className="mt-3 text-sm text-red-700">Could not load tag bank. Refresh to try again.</p>
+          <p className="mt-3 text-sm font-medium text-danger">Could not load tag bank. Refresh to try again.</p>
         ) : detail.tags.length === 0 ? (
-          <p className="mt-3 text-sm text-neutral-600">No tags added yet</p>
+          <p className="mt-3 text-sm text-muted">No tags added yet</p>
         ) : (
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             {[...tagGroups.entries()]
               .filter((entry: [string, string[]]) => entry[1].length > 0)
               .map(([aspect, labels]: [string, string[]]) => (
                 <div key={aspect}>
-                  <p className="text-xs font-medium capitalize text-neutral-500">{aspect}</p>
+                  <p className="eyebrow !normal-case">{aspect}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {labels.map((label: string) => (
                       <span
                         key={`${aspect}-${label}`}
-                        className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-sm"
+                        className="rounded-full border-2 border-hairline bg-white px-3 py-1 text-sm font-semibold"
                       >
                         {label}
                       </span>
@@ -234,8 +234,8 @@ export default function AdminRestaurantDetailPage() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 p-4">
-        <h2 className="font-medium">QR code</h2>
+      <section className="sticker-flat p-5">
+        <h2 className="font-display text-lg font-bold">QR code</h2>
         {token ? (
           <AdminQrBlock
             token={token}
@@ -246,24 +246,28 @@ export default function AdminRestaurantDetailPage() {
             onAuthFailure={() => router.replace("/login")}
           />
         ) : (
-          <p className="mt-3 text-sm text-neutral-500">Loading…</p>
+          <p className="mt-3 text-sm text-muted">Loading…</p>
         )}
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 p-4">
-        <h2 className="font-medium">Activity snapshot</h2>
+      <section className="sticker-flat p-5">
+        <h2 className="font-display text-lg font-bold">Activity snapshot</h2>
         {metricsLoading ? (
-          <p className="mt-3 text-sm text-neutral-500">Loading…</p>
+          <p className="mt-3 text-sm text-muted">Loading…</p>
         ) : metricsError || !metrics ? (
-          <p className="mt-3 text-sm text-red-700">
+          <p className="mt-3 text-sm font-medium text-danger">
             {metricsError ?? "Could not load activity snapshot. Refresh to try again."}
           </p>
         ) : (
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatCard label="Total scans" value={metrics.funnel.scans} />
             <StatCard label="Total completed sessions" value={metrics.funnel.started} />
             <StatCard label="Total Google click-throughs" value={metrics.funnel.opened_google} />
             <StatCard label="Total private feedback received" value={metrics.feedback.length} />
+            <StatCard
+              label="Average star rating"
+              value={metrics.ratings?.average != null ? `${metrics.ratings.average.toFixed(1)} ★` : "—"}
+            />
           </div>
         )}
       </section>
@@ -271,11 +275,11 @@ export default function AdminRestaurantDetailPage() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-xl bg-neutral-50 px-3 py-3">
-      <p className="text-xs text-neutral-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
+    <div className="rounded-2xl bg-tint px-3 py-3">
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-1 font-display text-2xl font-extrabold tabular-nums">{value}</p>
     </div>
   );
 }

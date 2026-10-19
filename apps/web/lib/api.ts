@@ -75,6 +75,7 @@ export async function createDraft(
   body: {
     items: string[];
     ratings: Record<string, number>;
+    overall_rating?: number;
     tags: string[];
     raw_text: string;
     tone: Tone;

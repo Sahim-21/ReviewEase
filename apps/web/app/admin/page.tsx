@@ -186,18 +186,18 @@ export default function AdminPage() {
 
   if (!user && loading) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-4 p-6">
-        <div className="h-8 w-48 animate-pulse rounded bg-neutral-100" />
-        <div className="h-40 animate-pulse rounded-2xl bg-neutral-100" />
-        <div className="h-40 animate-pulse rounded-2xl bg-neutral-100" />
+      <main className="mx-auto flex min-h-dvh max-w-4xl flex-col gap-4 p-5 sm:p-8">
+        <div className="h-8 w-48 animate-shimmer rounded-full bg-tint-strong" />
+        <div className="h-40 animate-shimmer rounded-3xl bg-tint-strong" />
+        <div className="h-40 animate-shimmer rounded-3xl bg-tint-strong" />
       </main>
     );
   }
 
   if (loadError) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center p-6">
-        <p className="text-sm text-red-700">{loadError}</p>
+      <main className="mx-auto flex min-h-dvh max-w-4xl flex-col justify-center p-5 sm:p-8">
+        <p className="text-sm font-medium text-danger">{loadError}</p>
       </main>
     );
   }
@@ -207,14 +207,14 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-8 p-6">
+    <main className="mx-auto flex min-h-dvh max-w-4xl flex-col gap-6 p-5 sm:gap-8 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Admin Dashboard</h1>
-          <p className="text-sm text-neutral-600">{cards.length} restaurants</p>
+          <h1 className="font-display text-3xl font-extrabold tracking-tight">Admin Dashboard</h1>
+          <p className="text-sm text-muted">{cards.length} restaurants</p>
         </div>
         <button
-          className="text-sm underline"
+          className="btn btn-secondary btn-sm"
           type="button"
           onClick={() => {
             clearAuth();
@@ -225,16 +225,16 @@ export default function AdminPage() {
         </button>
       </header>
 
-      <form className="grid gap-3 rounded-2xl border border-neutral-200 bg-white p-4" onSubmit={onCreate}>
-        <h2 className="font-medium">New restaurant</h2>
+      <form className="sticker grid gap-3 p-5" onSubmit={onCreate}>
+        <h2 className="font-display text-lg font-bold">New restaurant</h2>
         <label className="text-sm">
           Name
-          <input className="mt-1 w-full rounded-lg border px-3 py-2" value={name} onChange={(e) => setName(e.target.value)} required />
+          <input className="field mt-1" value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className="text-sm">
           Google Place ID
           <input
-            className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-sm"
+            className="field mt-1 font-mono text-sm"
             value={placeId}
             onChange={(e) => setPlaceId(e.target.value)}
             required
@@ -242,34 +242,34 @@ export default function AdminPage() {
         </label>
         <label className="text-sm">
           Brand colour
-          <input className="mt-1 block h-10 w-24" type="color" value={colour} onChange={(e) => setColour(e.target.value)} />
+          <input className="mt-1 block h-11 w-24 cursor-pointer rounded-xl border-2 border-hairline bg-white p-1" type="color" value={colour} onChange={(e) => setColour(e.target.value)} />
         </label>
         <label className="text-sm">
           Menu items (one per line, optional <code>|category</code>)
-          <textarea className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-sm" rows={5} value={menuText} onChange={(e) => setMenuText(e.target.value)} />
+          <textarea className="field mt-1 font-mono text-sm" rows={5} value={menuText} onChange={(e) => setMenuText(e.target.value)} />
         </label>
         <label className="text-sm">
           Tag bank (one per line: <code>label|food</code>)
-          <textarea className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-sm" rows={4} value={tagText} onChange={(e) => setTagText(e.target.value)} />
+          <textarea className="field mt-1 font-mono text-sm" rows={4} value={tagText} onChange={(e) => setTagText(e.target.value)} />
         </label>
         <label className="text-sm">
           Owner email (optional)
-          <input className="mt-1 w-full rounded-lg border px-3 py-2" type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} />
+          <input className="field mt-1" type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} />
         </label>
         <label className="text-sm">
           Owner password (optional)
-          <input className="mt-1 w-full rounded-lg border px-3 py-2" type="password" minLength={8} value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} />
+          <input className="field mt-1" type="password" minLength={8} value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} />
         </label>
-        {formError ? <p className="text-sm text-red-700">{formError}</p> : null}
-        <button className="w-fit rounded-full bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50" disabled={busy} type="submit">
+        {formError ? <p className="text-sm font-medium text-danger">{formError}</p> : null}
+        <button className="btn btn-primary btn-sm w-fit" disabled={busy} type="submit">
           {busy ? "Saving…" : "Create restaurant"}
         </button>
       </form>
 
       {loading ? (
         <div className="flex flex-col gap-4">
-          <div className="h-48 animate-pulse rounded-2xl bg-neutral-100" />
-          <div className="h-48 animate-pulse rounded-2xl bg-neutral-100" />
+          <div className="h-48 animate-shimmer rounded-3xl bg-tint-strong" />
+          <div className="h-48 animate-shimmer rounded-3xl bg-tint-strong" />
         </div>
       ) : (
         <section className="flex flex-col gap-6">

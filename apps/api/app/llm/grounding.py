@@ -37,6 +37,32 @@ _NEGATIVES = frozenset(
         "nasty",
     }
 )
+# Wording we never let into a draft, even when the diner used it: complaints stay mild.
+_HARSH = frozenset(
+    {
+        "terrible",
+        "awful",
+        "disgusting",
+        "worst",
+        "rude",
+        "inedible",
+        "horrible",
+        "gross",
+        "nasty",
+        "pathetic",
+        "bland",
+        "tasteless",
+        "sticky",
+        "garbage",
+        "trash",
+        "disaster",
+    }
+)
+_META_LEAK = re.compile(
+    r"\b(?:tags?|ratings?|scores?)\b|\b\d\s*/\s*5\b|\bas an ai\b|\bi (?:chose|selected|picked)\b",
+    re.IGNORECASE,
+)
+_THINK = re.compile(r"<think>.*?</think>|<think>.*\Z", re.DOTALL | re.IGNORECASE)
 _FENCE = re.compile(r"```[\w-]*\n?|```")
 _BOLD = re.compile(r"\*\*|__")
 _ITALIC = re.compile(r"(?<!\*)\*(?!\*)|(?<!_)_(?!_)")
@@ -55,7 +81,8 @@ def word_bounds(tone: str) -> tuple[int, int]:
 
 
 def clean_output(text: str) -> str:
-    stripped = _FENCE.sub("", text)
+    stripped = _THINK.sub("", text)
+    stripped = _FENCE.sub("", stripped)
     stripped = _HEADING.sub("", stripped)
     stripped = _BLOCKQUOTE.sub("", stripped)
     stripped = _BOLD.sub("", stripped)
@@ -138,10 +165,46 @@ def sentiment_ok(text: str, inp: DraftInput) -> bool:
     return True
 
 
+def tone_ok(text: str) -> bool:
+    """Reject harsh wording and any leak of how the data was collected (ratings, tags)."""
+    cleaned = clean_output(text)
+    if _words(cleaned) & _HARSH:
+        return False
+    return not _META_LEAK.search(cleaned)
+
+
 def word_count_ok(text: str, tone: str) -> bool:
     count = len(clean_output(text).split())
     low, high = word_bounds(tone)
     return low <= count <= high
+
+
+def grounding_issues(
+    text: str,
+    inp: DraftInput,
+    *,
+    recent_drafts: Sequence[str] = (),
+) -> list[str]:
+    """Why a draft is not acceptable (empty list = acceptable)."""
+    cleaned = clean_output(text)
+    if not cleaned:
+        return ["the draft was empty"]
+    issues: list[str] = []
+    extras = extra_menu_mentions(cleaned, inp)
+    if extras:
+        issues.append(f"it mentioned dishes the diner did not order: {', '.join(extras)}")
+    if not word_count_ok(cleaned, inp.tone):
+        low, high = word_bounds(inp.tone)
+        issues.append(f"it must be {low}-{high} words")
+    if not sentiment_ok(cleaned, inp):
+        issues.append("its sentiment did not match how the diner felt")
+    if not tone_ok(cleaned):
+        issues.append("it used harsh wording or mentioned ratings/tags; keep complaints mild and never mention ratings")
+    if recent_drafts and repeats_opening(cleaned, recent_drafts):
+        issues.append("its opening repeated a recent review; start differently")
+    if looks_like_instruction(cleaned):
+        issues.append("it looked like an instruction")
+    return issues
 
 
 def grounding_check(
@@ -150,17 +213,4 @@ def grounding_check(
     *,
     recent_drafts: Sequence[str] = (),
 ) -> bool:
-    cleaned = clean_output(text)
-    if not cleaned:
-        return False
-    if extra_menu_mentions(cleaned, inp):
-        return False
-    if not word_count_ok(cleaned, inp.tone):
-        return False
-    if not sentiment_ok(cleaned, inp):
-        return False
-    if recent_drafts and repeats_opening(cleaned, recent_drafts):
-        return False
-    if looks_like_instruction(cleaned):
-        return False
-    return True
+    return not grounding_issues(text, inp, recent_drafts=recent_drafts)

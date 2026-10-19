@@ -8,18 +8,18 @@ export interface SuspendServiceModalProps {
 
 export function SuspendServiceModal({ onCancel, onConfirm, busy }: SuspendServiceModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-        <h2 className="text-lg font-semibold">Suspend QR review service?</h2>
-        <p className="mt-3 text-sm text-neutral-600">
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-ink/50 p-4 backdrop-blur-[2px]">
+      <div className="sticker w-full max-w-md animate-pop-in p-6">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">Suspend QR review service?</h2>
+        <p className="mt-3 text-sm text-muted">
           Diners who scan the QR will see a &apos;service unavailable&apos; message. You can reactivate anytime.
         </p>
         <div className="mt-5 flex justify-end gap-2">
-          <button className="rounded-full px-4 py-2 text-sm text-neutral-700" type="button" onClick={onCancel}>
+          <button className="btn btn-secondary btn-sm" type="button" onClick={onCancel}>
             Cancel
           </button>
           <button
-            className="rounded-full bg-amber-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+            className="btn btn-primary btn-sm"
             disabled={busy}
             type="button"
             onClick={onConfirm}

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.sanitize import strip_html
 
@@ -90,6 +90,7 @@ class SessionCreate(BaseModel):
 class SessionDraftUpdate(BaseModel):
     items: list[object] | dict[str, object] | None = None
     ratings: dict[str, object] | None = None
+    overall_rating: int | None = None
     tags: list[object] | dict[str, object] | None = None
     raw_text: str | None = None
     tone: str | None = None
@@ -197,6 +198,7 @@ class SessionCompleteResponse(BaseModel):
 class SessionDraftRequest(BaseModel):
     items: list[str] = Field(default_factory=list, max_length=20)
     ratings: dict[str, int] = Field(default_factory=dict)
+    overall_rating: int | None = Field(default=None, ge=1, le=5)
     tags: list[str] = Field(default_factory=list, max_length=20)
     raw_text: str = Field(default="", max_length=1000)
     tone: str = "casual"
@@ -246,6 +248,21 @@ class SessionDraftRequest(BaseModel):
                 raise ValueError("ratings must be between 1 and 5")
             cleaned[key] = int(score)
         return cleaned
+
+    @model_validator(mode="after")
+    def reconcile_star_rating(self) -> "SessionDraftRequest":
+        """Keep the overall star rating and the per-aspect ratings consistent.
+
+        Older clients send only per-aspect ratings; newer ones send the overall stars,
+        optionally with per-aspect overrides. Either way the draft sees all four aspects
+        and the session stores one overall number.
+        """
+        if self.overall_rating is not None:
+            for aspect in ("food", "service", "ambience", "value"):
+                self.ratings.setdefault(aspect, self.overall_rating)
+        elif self.ratings:
+            self.overall_rating = round(sum(self.ratings.values()) / len(self.ratings))
+        return self
 
 
 class SessionDraftResponse(BaseModel):
@@ -421,9 +438,31 @@ class FeedbackItem(BaseModel):
     created_at: str
 
 
+class RatingStats(BaseModel):
+    count: int = 0
+    average: float | None = None
+    # Index 0 holds the number of 1-star sessions, index 4 the number of 5-star sessions.
+    distribution: list[int] = Field(default_factory=lambda: [0, 0, 0, 0, 0])
+
+
+class AttentionItem(BaseModel):
+    """A low-star (1-2) visit the owner should look at: either a private note or a rated session."""
+
+    kind: str  # "feedback" | "session"
+    id: int
+    rating: int | None = None
+    message: str | None = None
+    items: list[str] = Field(default_factory=list)
+    note: str | None = None
+    contact: str | None = None
+    created_at: str
+
+
 class OwnerMetrics(BaseModel):
     restaurant_id: int
     restaurant_name: str
     funnel: FunnelCounts
     daily: list[DayCount]
     feedback: list[FeedbackItem]
+    ratings: RatingStats = Field(default_factory=RatingStats)
+    attention: list[AttentionItem] = Field(default_factory=list)
