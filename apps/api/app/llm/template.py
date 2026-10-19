@@ -97,12 +97,13 @@ def template_draft(inp: DraftInput, *, rng: random.Random | None = None) -> str:
     if brief.descriptors:
         sentences.append(f"It felt {_join(brief.descriptors)}.")
 
-    for point in [pt for pt in brief.praise_points if len(pt.split()) >= 3][:1]:
-        sentences.append(_cap(_sentence(point)))
+    latin_points = [pt for pt in brief.diner_points if pt.isascii()]
+    if latin_points:
+        sentences.append(f"Also worth a mention: {_join([pt[:1].lower() + pt[1:] for pt in latin_points])}.")
 
     if brief.minor_notes:
         concern = brief.minor_notes[0]
         sentences.append(_sentence(rng.choice(_CONCERN).format(c=concern, C=_cap(concern)).rstrip(".")))
 
-    limit = _max_sentences(inp.tone)
+    limit = _max_sentences(inp.tone) + (1 if latin_points else 0)
     return " ".join(sentences[:limit])

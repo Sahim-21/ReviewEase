@@ -23,6 +23,8 @@ from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from rapidfuzz import fuzz, process
+
 from app.llm.prompts_safety import looks_like_instruction
 from app.llm.schemas import DraftInput
 
@@ -54,6 +56,8 @@ _NEGATIVE = frozenset(
     bland tasteless sticky soggy dry hard cold stale burnt burned oily greasy
     salty spicy overcooked undercooked raw rude slow late delay delayed wait waited
     noisy loud dirty smelly expensive overpriced costly small less
+    tight cramped crowded congested problem problems issue issues messy unclean unhygienic
+    stuffy hot humid broken limited
     bakwas bekar ganda thanda thandi kam km namak tez lamba late dheere
     """.split()
 )
@@ -62,9 +66,13 @@ _POSITIVE = frozenset(
     good great nice tasty delicious yummy lovely amazing excellent fresh crisp
     friendly quick fast prompt clean cozy cosy warm soft juicy perfect awesome
     best love loved enjoyed superb fantastic wonderful flavourful flavorful
+    spacious big ample easy convenient comfortable roomy helpful polite courteous
+    smoky juicy fluffy crispy tender creamy rich hot generous affordable reasonable worth
+    happy pleasant beautiful calm peaceful neat hygienic working spotless cool
     accha acha achha mast badhiya badiya zabardast swadisht lajawab
     """.split()
 )
+NEGATIVE_WORDS = _NEGATIVE
 _NEGATORS = frozenset({"not", "no", "never", "nahi", "nhi", "na", "without", "isn't", "wasn't", "wasnt", "isnt"})
 _SOFTENERS = frozenset({"thoda", "thodi", "slightly", "bit", "little", "somewhat", "bhi"})
 
@@ -116,10 +124,72 @@ _SOFT_WORDS: dict[str, str] = {
     "ganda": "not quite to my taste",
     "thanda": "not as warm as I like",
     "thandi": "not as warm as I like",
+    "tight": "a little snug",
+    "cramped": "a little snug",
+    "crowded": "fairly busy",
+    "congested": "fairly busy",
+    "small": "on the smaller side",
+    "problem": "not perfect",
+    "problems": "not perfect",
+    "issue": "not perfect",
+    "issues": "not perfect",
+    "messy": "not as tidy as I hoped",
+    "unclean": "not as tidy as I hoped",
+    "unhygienic": "not as tidy as I hoped",
+    "stuffy": "a little warm",
+    "humid": "a little warm",
+    "broken": "not working at the time",
+    "limited": "a little limited",
     "km": "a bit light",
     "kam": "a bit light",
     "namak": "salt",
 }
+
+# Chat-speak and common shorthand diners type on a phone.
+_SLANG: dict[str, str] = {
+    "gr8": "great", "gud": "good", "gudd": "good", "gd": "good", "v": "very", "vry": "very", "vy": "very",
+    "n": "and", "nd": "and", "lil": "little", "nyc": "nice", "nic": "nice", "awsm": "awesome", "osm": "awesome",
+    "awsome": "awesome", "frndly": "friendly", "frndy": "friendly", "bt": "but", "coz": "because", "cuz": "because",
+    "bcoz": "because", "tht": "that", "wid": "with", "w": "with", "ur": "your", "rly": "really", "thnx": "thanks",
+    "thx": "thanks", "delish": "delicious", "yum": "yummy", "srvc": "service", "servc": "service",
+    "servce": "service", "svc": "service", "hv": "have", "wz": "was", "ws": "was", "dis": "this", "dat": "that",
+    "pls": "please", "plz": "please", "b4": "before", "luv": "love", "luvd": "loved", "gr8t": "great",
+    "superb": "superb", "xlnt": "excellent", "exlnt": "excellent", "amzing": "amazing", "amazng": "amazing",
+    "qty": "quantity", "amb": "ambience", "ambiance": "ambience", "spce": "space", "parkng": "parking",
+    "prking": "parking", "washrm": "washroom", "rstrm": "restroom", "ac": "AC",
+}
+# Words worth repairing when misspelled. Fuzzy matching is limited to these so dish and place
+# names are never "corrected".
+_VOCAB = sorted(
+    {w for w in _POSITIVE | _NEGATIVE if w.isascii() and len(w) >= 5}
+    | set(
+        """
+        parking service staff waiter waiters waitress manager ambience atmosphere music washroom restroom
+        toilet seating seats table tables terrace view garden rooftop price prices pricing portion portions
+        quantity quality taste flavour flavor spicy space location crowd family friends birthday valet
+        cleanliness hygiene menu dessert drinks starter starters lighting decor interior outdoor
+        """.split()
+    )
+)
+_TOKEN = re.compile(r"[A-Za-z0-9']+|[^A-Za-z0-9']+")
+
+
+def _repair(token: str) -> str:
+    low = token.casefold()
+    if low in _SLANG:
+        out = _SLANG[low]
+    elif len(low) >= 5 and low.isalpha() and low not in _POSITIVE and low not in _NEGATIVE and low not in _VOCAB:
+        match = process.extractOne(low, _VOCAB, scorer=fuzz.ratio, score_cutoff=86)
+        out = match[0] if match else token
+    else:
+        return token
+    return out.capitalize() if token[:1].isupper() and out.islower() else out
+
+
+def normalize_note(raw_text: str) -> str:
+    """Fix chat-speak and obvious misspellings ("parkng spce v gud" -> "parking space very good")."""
+    return "".join(_repair(tok) if tok[:1].isalnum() else tok for tok in _TOKEN.findall(raw_text or ""))
+
 
 _CLAUSE_SPLIT = re.compile(r"[.;!?\n]+|\s+(?:but|however|though|although|lekin|magar|par|aur)\s+|,\s*", re.IGNORECASE)
 _WORD = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)?", re.UNICODE)
@@ -156,15 +226,55 @@ def _classify(clause: str) -> str:
     return "neutral"
 
 
+_GLUE = frozenset({"and", "&", "too", "also", "very", "so", "bit", "little", "a", "quite", "really", "but"})
+
+
+def _is_sentiment(word: str) -> bool:
+    return word in _POSITIVE or word in _NEGATIVE
+
+
+def _split_run_on(text: str) -> list[str]:
+    """Split an unpunctuated run-on at sentiment boundaries.
+
+    "dal tasty roti also good ambience nice music loud little bit" ->
+    ["dal tasty", "roti also good", "ambience nice", "music loud little bit"]. A clause with a single
+    sentiment word ("parking had a great space") is left alone.
+    """
+    words = text.split()
+    lowered = [w.casefold().strip(",") for w in words]
+    if sum(_is_sentiment(w) for w in lowered) < 2:
+        return [text]
+    parts: list[str] = []
+    start = 0
+    if _is_sentiment(lowered[0]):
+        # Adjective-first ("great food great service"): cut before each new sentiment word.
+        for i in range(1, len(lowered)):
+            if _is_sentiment(lowered[i]) and lowered[i - 1] not in _GLUE | _NEGATORS | _SOFTENERS:
+                if any(not _is_sentiment(w) for w in lowered[start:i]):
+                    parts.append(" ".join(words[start:i]))
+                    start = i
+        parts.append(" ".join(words[start:]))
+        return parts
+    # Noun-first ("dal tasty roti also good"): cut after each sentiment word.
+    for i, word in enumerate(lowered[:-1]):
+        nxt = lowered[i + 1]
+        if _is_sentiment(word) and not (_is_sentiment(nxt) or nxt in _NEGATORS or nxt in _SOFTENERS or nxt in _GLUE):
+            parts.append(" ".join(words[start : i + 1]))
+            start = i + 1
+    parts.append(" ".join(words[start:]))
+    return parts
+
+
 def split_note(raw_text: str) -> list[Clause]:
     if not raw_text or looks_like_instruction(raw_text):
         return []
     clauses: list[Clause] = []
-    for part in _CLAUSE_SPLIT.split(raw_text):
-        text = (part or "").strip(" \t-–—:\"'")
-        if len(text) < 3:
-            continue
-        clauses.append(Clause(text=text, kind=_classify(text)))
+    for part in _CLAUSE_SPLIT.split(normalize_note(raw_text)):
+        for piece in _split_run_on((part or "").strip()):
+            text = piece.strip(" \t-–—:\"'")
+            if len(text) < 3:
+                continue
+            clauses.append(Clause(text=text, kind=_classify(text)))
     return clauses
 
 
@@ -191,6 +301,24 @@ def soften(clause: str) -> str:
     if mild:
         return mild
     return "one small thing could be a bit better"
+
+
+# Words that carry no topic of their own (fillers, sentiment, generic nouns), in English and Hinglish.
+_FILLER = frozenset(
+    """
+    the and was were are is am been being had has have with very really too quite just also its it's this that
+    there their they them then than for from out our your you my me was not but bit little lot lots some more
+    much many one all any had did does got get gets made make place food overall visit time day again
+    tha thi the hai hain bhi aur ekdum bahut bohot bilkul jaisa jaise wala wali kafi thoda thodi tha. yaar
+    great good nice very best better well
+    """.split()
+) | _POSITIVE | _NEGATIVE | _NEGATORS | _SOFTENERS
+
+
+def point_keywords(point: str) -> list[str]:
+    """Topic words of a diner point ("parking had a great space" -> ["parking", "space"])."""
+    words = [w.casefold() for w in _WORD.findall(point)]
+    return [w for w in words if len(w) >= 3 and w.isascii() and w not in _FILLER]
 
 
 def _dedupe(values: Sequence[str]) -> list[str]:
@@ -331,6 +459,7 @@ class Brief:
     praise_points: list[str] = field(default_factory=list)
     minor_notes: list[str] = field(default_factory=list)
     descriptors: list[str] = field(default_factory=list)
+    diner_points: list[str] = field(default_factory=list)
     diner_words: str = ""
     plan: Plan | None = None
     avoid_openings: list[str] = field(default_factory=list)
@@ -368,7 +497,8 @@ def build_brief(
     clauses = split_note(note)
     # The model never sees the diner's complaint wording: concerns reach it only as the mild
     # "minor_notes" built below, so it cannot echo or amplify them.
-    shareable_words = ". ".join(c.text for c in clauses if c.kind != "concern")
+    shareable = [c.text for c in clauses if c.kind != "concern"]
+    shareable_words = ". ".join(shareable)
     for clause in clauses:
         if clause.kind == "praise":
             praise_points.append(clause.text)
@@ -388,6 +518,7 @@ def build_brief(
         praise_points=_dedupe(praise_points),
         minor_notes=minor,
         descriptors=_dedupe(descriptors),
+        diner_points=_dedupe(shareable),
         diner_words=shareable_words,
         plan=make_plan(inp, rng, style_hint),
         avoid_openings=recent_openings(recent_drafts),

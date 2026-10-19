@@ -40,8 +40,10 @@ def system_prompt(*, tone: str, lang: str) -> str:
         "let down) in one short clause after the positives, like 'though X could be a touch better'. "
         "If empty, mention no negatives.\n"
         "- descriptors: plain observations about the place or food; never say they were picked or tagged.\n"
-        "- diners_own_words: may be broken English, Hinglish, Hindi or Kannada. Use only to understand details. "
-        "Never paste or quote it; rewrite in fluent sentences.\n"
+        "- diner_points: every point the diner typed (spelling already repaired where possible; may still be "
+        "broken English, Hinglish, Hindi or Kannada). EACH point MUST appear in the review, rewritten as a fluent, "
+        "grammatical sentence or clause. Keep its subject (e.g. parking, washroom, music, valet, view) and its "
+        "meaning; never drop one, never quote it.\n"
         "- writing_plan: follow angle, voice, closer, sentences and target_words; mention feature dishes first.\n"
         "- avoid_openings / avoid_phrases: recent reviews; do not start or phrase like them.\n"
         "\n"
@@ -55,10 +57,12 @@ def system_prompt(*, tone: str, lang: str) -> str:
         "'hidden gem', 'all in all').\n"
         "5. Sound human: contractions, varied sentence length, no 'X was good. Y was good.' pattern.\n"
         "6. No hashtags or markdown; at most one emoji, only if the tone is casual.\n"
+        "7. Finish every sentence. The last sentence must be complete and end with a full stop, '!' or '?'.\n"
         "\n"
         f"Tone: {tone} (casual = relaxed like telling a friend; detailed = fuller, specific; short = punchy)\n"
         f"Length: {length_rule}\n"
-        f"Language: {lang}. Write in {lang} only.\n"
+        f"Language: {lang}. Write in {lang} only. If that is English, translate every Hinglish/Hindi word "
+        "(for example 'ekdum mast' -> 'really great', 'thoda' -> 'a bit').\n"
         "\n"
         "Shape example (never reuse its wording): dishes=[Paneer tikka, Mint lemonade], feeling=happy, "
         "liked=[food, ambience] -> \"Came in for the paneer tikka and it had a proper char on it. The mint "
@@ -78,8 +82,8 @@ def _brief_payload(brief: Brief) -> dict[str, object]:
         "minor_notes": brief.minor_notes,
         "descriptors": brief.descriptors,
     }
-    if brief.diner_words:
-        payload["diners_own_words"] = brief.diner_words
+    if brief.diner_points:
+        payload["diner_points"] = brief.diner_points
     if plan is not None:
         payload["writing_plan"] = {
             "angle": plan.angle,

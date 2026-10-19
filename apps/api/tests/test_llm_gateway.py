@@ -35,7 +35,7 @@ def _repeat(sentence: str, words: int) -> str:
     out: list[str] = []
     while len(out) < words:
         out.extend(unit)
-    return " ".join(out[:words])
+    return " ".join(out[:words]).rstrip(".,") + "."
 
 
 def _sample() -> DraftInput:

@@ -3,7 +3,8 @@ from collections.abc import Sequence
 
 from rapidfuzz import fuzz
 
-from app.llm.prompts import looks_like_instruction
+from app.llm.brief import NEGATIVE_WORDS, point_keywords, soften, split_note
+from app.llm.prompts_safety import looks_like_instruction
 from app.llm.schemas import DraftInput
 
 _PRAISE = frozenset(
@@ -75,8 +76,10 @@ SELECTED_THRESHOLD = 86
 
 
 def word_bounds(tone: str) -> tuple[int, int]:
+    # Accepted range. The prompt still asks for 20-40 / 40-80 / 80-120; a punchy 15-word "short"
+    # review is fine and should not fall back to the template.
     if tone == "short":
-        return 20, 40
+        return 15, 45
     return 40, 120
 
 
@@ -173,6 +176,94 @@ def tone_ok(text: str) -> bool:
     return not _META_LEAK.search(cleaned)
 
 
+_SCRIPT_LANGS = {"Hindi", "Kannada"}
+_SENTENCE_END = (".", "!", "?", "।", ")", '"', "”")
+_COMPANY = re.compile(r"\b(?:we|us|our|my (?:wife|husband|family|friends?|kids|son|daughter|partner))\b", re.IGNORECASE)
+_COMPANY_HINTS = re.compile(
+    r"\b(?:we|us|our|family|friends?|kids?|son|daughter|wife|husband|partner|parents|colleagues|hum|humne|humko)\b",
+    re.IGNORECASE,
+)
+
+
+def ends_cleanly(text: str) -> bool:
+    """False when the draft stops mid-sentence (e.g. it hit the token limit: "Parking was a")."""
+    cleaned = clean_output(text).rstrip()
+    if not cleaned:
+        return False
+    last = cleaned[-1]
+    return last in _SENTENCE_END or not (last.isalnum() or last in ",;:-–—")
+
+
+def _mentions(keyword: str, text: str, words: set[str]) -> bool:
+    if re.search(rf"(?<![a-z]){re.escape(keyword)}", text):
+        return True
+    if len(keyword) < 5:
+        return False
+    return any(fuzz.ratio(keyword, word) >= 85 for word in words)
+
+
+def missing_points(text: str, inp: DraftInput) -> list[str]:
+    """Diner points (non-complaint clauses of the note) the draft left out entirely."""
+    if inp.lang in _SCRIPT_LANGS:
+        return []  # topic words would be translated into another script; nothing reliable to match
+    lowered = clean_output(text).casefold()
+    words = _words(lowered)
+    missing: list[str] = []
+    for clause in split_note(inp.raw_text):
+        if clause.kind == "concern":
+            continue
+        keywords = point_keywords(clause.text)
+        if keywords and not any(_mentions(k, lowered, words) for k in keywords):
+            missing.append(clause.text)
+    return missing
+
+
+# Plain words a mild review may still use ("a short wait", "a little slow"); only descriptive
+# complaint words (tight, cold, bland...) count as echoing.
+_NEUTRAL_COMPLAINT_WORDS = frozenset(
+    {"wait", "waited", "delay", "delayed", "late", "slow", "less", "small", "limited", "kam", "km", "namak"}
+)
+
+
+def echoed_complaints(text: str, inp: DraftInput) -> list[str]:
+    """Complaint words from the diner's note that the draft repeats instead of using the mild version.
+
+    The model only ever sees "seating was a little snug"; if the draft still says "tight", it is
+    amplifying the complaint, which the owner asked us not to do.
+    """
+    found: set[str] = set()
+    output = _words(clean_output(text))
+    for clause in split_note(inp.raw_text):
+        if clause.kind != "concern":
+            continue
+        allowed = _words(soften(clause.text)) | _NEUTRAL_COMPLAINT_WORDS
+        harsh = {w for w in _words(clause.text) if w in NEGATIVE_WORDS} - allowed
+        found |= harsh & output
+    return sorted(found)
+
+
+def invents_company(text: str, inp: DraftInput) -> bool:
+    """The draft talks about 'we' or family when the diner never mentioned anyone else."""
+    return bool(_COMPANY.search(clean_output(text))) and not _COMPANY_HINTS.search(inp.raw_text or "")
+
+
+# Hinglish / Hindi words that should be translated when the review is written in English.
+_HINGLISH = frozenset(
+    """
+    mast ekdum accha acha achha badhiya badiya bahut bohot thoda thodi bilkul zabardast lajawab swadisht
+    bakwas bekar yaar hai hain tha thi bhi kaafi kafi jaisa jaise wala wali nahi nhi
+    """.split()
+)
+
+
+def untranslated_words(text: str, inp: DraftInput) -> list[str]:
+    """Hinglish words left in a review that should be in plain English (dish names excepted)."""
+    if inp.lang != "English":
+        return []
+    allowed = _words(" ".join([*inp.items, *inp.menu]))
+    return sorted((_words(clean_output(text)) & _HINGLISH) - allowed)
+
+
 def word_count_ok(text: str, tone: str) -> bool:
     count = len(clean_output(text).split())
     low, high = word_bounds(tone)
@@ -200,6 +291,19 @@ def grounding_issues(
         issues.append("its sentiment did not match how the diner felt")
     if not tone_ok(cleaned):
         issues.append("it used harsh wording or mentioned ratings/tags; keep complaints mild and never mention ratings")
+    if not ends_cleanly(cleaned):
+        issues.append("it stopped mid-sentence; finish every sentence")
+    missing = missing_points(cleaned, inp)
+    if missing:
+        issues.append("it left out what the diner said about: " + "; ".join(missing))
+    echoed = echoed_complaints(cleaned, inp)
+    if echoed:
+        issues.append("it repeated the diner's complaint wording (" + ", ".join(echoed) + "); use only the mild minor_notes")
+    leftovers = untranslated_words(cleaned, inp)
+    if leftovers:
+        issues.append("it left Hinglish words untranslated in an English review: " + ", ".join(leftovers))
+    if invents_company(cleaned, inp):
+        issues.append("it mentioned 'we' or companions the diner never mentioned; write as 'I'")
     if recent_drafts and repeats_opening(cleaned, recent_drafts):
         issues.append("its opening repeated a recent review; start differently")
     if looks_like_instruction(cleaned):
