@@ -21,27 +21,27 @@ export function DeleteRestaurantModal({
   const matches = typed === restaurantName;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-        <h2 className="text-lg font-semibold">Permanently delete {restaurantName}?</h2>
-        <p className="mt-3 text-sm text-neutral-600">
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-ink/50 p-4 backdrop-blur-[2px]">
+      <div className="sticker w-full max-w-md animate-pop-in p-6">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">Permanently delete {restaurantName}?</h2>
+        <p className="mt-3 text-sm text-muted">
           This will delete all sessions, feedback, menu items and tags for this restaurant. This cannot be undone.
         </p>
         <label className="mt-4 block text-sm">
           Type the restaurant name to confirm
           <input
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            className="field mt-1"
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
           />
         </label>
-        {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-danger">{error}</p> : null}
         <div className="mt-5 flex justify-end gap-2">
-          <button className="rounded-full px-4 py-2 text-sm text-neutral-700" type="button" onClick={onCancel}>
+          <button className="btn btn-secondary btn-sm" type="button" onClick={onCancel}>
             Cancel
           </button>
           <button
-            className="rounded-full bg-red-600 px-4 py-2 text-sm text-white disabled:opacity-40"
+            className="btn btn-danger btn-sm"
             disabled={!matches || busy}
             type="button"
             onClick={onConfirm}

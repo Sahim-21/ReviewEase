@@ -1,5 +1,7 @@
 import httpx
 
+from app.llm.protocol import RateLimited
+
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 DEFAULT_GROQ_MODEL = "qwen/qwen3.8-27b"
 GROQ_MODELS = (
@@ -84,6 +86,9 @@ class GroqProvider:
             headers={"Authorization": f"Bearer {self.api_key}"},
             json=self._payload(system, user, max_tokens=max_tokens, temperature=temperature),
         )
+        if response.status_code == 429:
+            raw = response.headers.get("retry-after")
+            raise RateLimited("groq", float(raw) if raw and raw.replace(".", "", 1).isdigit() else None)
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:

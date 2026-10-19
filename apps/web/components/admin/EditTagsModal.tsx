@@ -93,31 +93,31 @@ export function EditTagsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white p-5 shadow-xl">
-        <h2 className="text-lg font-semibold">Edit Tag Bank — {restaurantName}</h2>
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-ink/50 p-4 backdrop-blur-[2px]">
+      <div className="sticker flex max-h-[90vh] w-full max-w-lg animate-pop-in flex-col p-6">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">Edit Tag Bank — {restaurantName}</h2>
         <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto">
           {grouped.map(([aspect, aspectRows]: [string, TagEditRow[]]) => (
             <section key={aspect}>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">{aspect}</p>
+              <p className="eyebrow">{aspect}</p>
               <div className="mt-2 space-y-2">
                 {aspectRows.map((row: TagEditRow) => (
                   <div key={row.key} className="flex gap-2">
                     <input
-                      className="w-1/3 rounded-lg border px-2 py-2 text-sm"
+                      className="field w-1/3 !rounded-xl !px-2 !py-2 text-sm"
                       list={listId}
                       placeholder="Aspect"
                       value={row.aspect}
                       onChange={(event) => updateRow(row.key, "aspect", event.target.value)}
                     />
                     <input
-                      className="min-w-0 flex-1 rounded-lg border px-2 py-2 text-sm"
+                      className="field min-w-0 flex-1 !rounded-xl !px-2 !py-2 text-sm"
                       placeholder="Label"
                       value={row.label}
                       onChange={(event) => updateRow(row.key, "label", event.target.value)}
                     />
                     <button
-                      className="shrink-0 rounded-lg border px-2 text-sm text-neutral-600"
+                      className="shrink-0 rounded-xl border-2 border-hairline bg-white px-2.5 text-sm font-bold text-muted hover:text-danger"
                       type="button"
                       onClick={() =>
                         setRows((current: TagEditRow[]) => current.filter((item: TagEditRow) => item.key !== row.key))
@@ -136,7 +136,7 @@ export function EditTagsModal({
             ))}
           </datalist>
           <button
-            className="text-sm font-medium underline"
+            className="link-quiet text-sm"
             type="button"
             onClick={() =>
               setRows((current: TagEditRow[]) => [
@@ -148,13 +148,13 @@ export function EditTagsModal({
             + Add tag
           </button>
         </div>
-        {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-danger">{error}</p> : null}
         <div className="mt-4 flex justify-end gap-2">
-          <button className="rounded-full px-4 py-2 text-sm text-neutral-700" type="button" onClick={onClose}>
+          <button className="btn btn-secondary btn-sm" type="button" onClick={onClose}>
             Cancel
           </button>
           <button
-            className="rounded-full bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
+            className="btn btn-primary btn-sm"
             disabled={saving}
             type="button"
             onClick={() => void onSave()}

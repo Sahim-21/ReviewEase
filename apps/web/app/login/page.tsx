@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
+import { Icon } from "@/components/ui/Icon";
 import { readAuth, writeAuth, type AuthUser } from "@/lib/auth";
 import { login } from "@/lib/staffApi";
 
@@ -55,45 +56,56 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Staff sign in</h1>
-        <p className="mt-1 text-sm text-neutral-600">Owners and admins only. Diners stay anonymous.</p>
-      </div>
-      <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-        <label className="text-sm">
-          Email
-          <input
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
-            type="email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
-        <label className="text-sm">
-          Password
-          <input
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
-            type="password"
-            autoComplete="current-password"
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
-        <button
-          className="rounded-full bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
-          disabled={busy}
-          type="submit"
+    <main className="relative mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 overflow-hidden p-6">
+      <span className="blob -right-16 top-10 h-56 w-56" aria-hidden />
+      <span className="blob -bottom-10 -left-16 h-48 w-48" aria-hidden />
+      <div className="sticker relative p-6 sm:p-8">
+        <span
+          className="mb-4 inline-flex -rotate-2 items-center gap-2 rounded-full border-2 border-line bg-brand px-3 py-1 font-display text-sm font-bold text-on-brand shadow-pop-sm"
         >
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
-      <Link className="text-sm text-neutral-600 underline" href="/">
+          <Icon name="lock" size={16} />
+          ReviewEase Staff
+        </span>
+        <h1 className="font-display text-3xl font-extrabold tracking-tight">Staff sign in</h1>
+        <p className="mt-1 text-sm text-muted">Owners and admins only. Diners stay anonymous.</p>
+        <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
+          <label className="font-display text-sm font-bold">
+            Email
+            <input
+              className="field mt-1 font-sans font-normal"
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </label>
+          <label className="font-display text-sm font-bold">
+            Password
+            <input
+              className="field mt-1 font-sans font-normal"
+              type="password"
+              autoComplete="current-password"
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+          {error ? (
+            <p role="alert" className="flex items-center gap-2 rounded-2xl border-2 border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
+              <Icon name="warning" size={18} className="shrink-0" />
+              {error}
+            </p>
+          ) : null}
+          <button className="btn btn-primary w-full" disabled={busy} type="submit">
+            {busy ? "Signing in…" : "Sign in"}
+            {busy ? null : <Icon name="arrowForward" />}
+          </button>
+        </form>
+      </div>
+      <Link className="link-quiet relative inline-flex items-center justify-center gap-1 self-center text-sm" href="/">
+        <Icon name="arrowBack" size={16} />
         Home
       </Link>
     </main>

@@ -1,92 +1,108 @@
-import hashlib
+"""No-LLM fallback draft.
 
-from app.llm.grounding import word_bounds
-from app.llm.prompts import looks_like_instruction
+Used only when every provider fails. It is built from the same structured brief the
+model gets, so it never prints ratings as "food was good, service was good...", never
+pastes the diner's raw note and keeps complaints mild, but it is still plain English
+assembled from a handful of phrasings, so it is deliberately short.
+"""
+
+from __future__ import annotations
+
+import random
+
+from app.llm.brief import Brief, build_brief
 from app.llm.schemas import DraftInput
 
-_RATING_WORDS = {1: "poor", 2: "weak", 3: "okay", 4: "good", 5: "great"}
+_ASPECT_NAMES = {"food": "the food", "service": "the service", "ambience": "the ambience", "value": "the value"}
 
-_LEAD = (
-    "Today",
-    "Here",
-    "Overall",
-    "Mainly",
-    "Mostly",
-    "Finally",
-    "First",
-    "Later",
-    "After",
-    "Before",
-    "During",
-    "Around",
-    "Meanwhile",
-    "Plus",
-    "Also",
-    "Next",
+_OPEN_POSITIVE = (
+    "{D} {be} a real highlight for me.",
+    "Really enjoyed {D}.",
+    "Went for {D} and it did not disappoint.",
+    "{D} {be} easily a highlight.",
+    "{D} hit the spot.",
 )
-_VERB = ("had", "ordered", "chose", "picked", "tried", "got", "ate", "wanted")
+_OPEN_FINE = (
+    "Tried {D}, and {be_it} decent.",
+    "{D} {be} fine, nothing fancy.",
+    "Had {D} on this visit and {be_it} okay.",
+)
+_OPEN_LOW = (
+    "Tried {D} this time.",
+    "Had {D} on this visit.",
+    "{D} {be} on the table for us.",
+)
+_OPEN_NO_DISH = (
+    "Stopped by for a meal here.",
+    "Dropped in for a bite recently.",
+    "Had a meal here recently.",
+)
+_ALSO = (
+    "{A} stood out too.",
+    "{A} also worked well.",
+    "I liked {A} as well.",
+)
+_CONCERN = (
+    "That said, {c}, but nothing major.",
+    "The only small thing: {c}.",
+    "{C}, though that is a minor thing.",
+)
 
 
 def _join(parts: list[str]) -> str:
-    cleaned = [part.strip() for part in parts if part.strip()]
-    if not cleaned:
+    parts = [part for part in parts if part]
+    if not parts:
         return ""
-    if len(cleaned) == 1:
-        return cleaned[0]
-    return ", ".join(cleaned[:-1]) + f" and {cleaned[-1]}"
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + f" and {parts[-1]}"
 
 
-def _digest(inp: DraftInput) -> bytes:
-    return hashlib.sha256(
-        repr((inp.items, inp.tone, inp.lang, inp.tags, inp.raw_text, tuple(sorted(inp.ratings.items())))).encode()
-    ).digest()
+def _cap(text: str) -> str:
+    text = text.strip()
+    return text[:1].upper() + text[1:] if text else text
 
 
-def _opening_sentence(inp: DraftInput, dishes: str) -> str:
-    digest = _digest(inp)
-    lead = _LEAD[digest[0] % len(_LEAD)]
-    verb = _VERB[digest[3] % len(_VERB)]
-    if dishes:
-        return f"{lead} I {verb} {dishes}."
-    if inp.ratings:
-        return f"{lead} I {verb} to rate this visit."
-    return f"{lead} I {verb} to note this visit."
+def _sentence(text: str) -> str:
+    text = text.strip()
+    return text if text.endswith((".", "!", "?")) else f"{text}."
 
 
-def _safe_note(raw_text: str) -> str:
-    note = raw_text.strip()
-    if not note or looks_like_instruction(note):
-        return ""
-    return note if note.endswith((".", "!", "?")) else f"{note}."
+def _opening(brief: Brief, rng: random.Random) -> str:
+    dishes = list(brief.plan.feature) if brief.plan and brief.plan.feature else brief.dishes
+    if not dishes:
+        return rng.choice(_OPEN_NO_DISH)
+    names = _join(dishes)
+    plural = len(dishes) > 1
+    pool = _OPEN_POSITIVE if (brief.overall or 3) >= 4 else _OPEN_FINE if (brief.overall or 3) == 3 else _OPEN_LOW
+    be = "were" if plural else "was"
+    be_it = "they were" if plural else "it was"
+    return _cap(rng.choice(pool).format(D=names, be=be, be_it=be_it))
 
 
-def _pad(text: str, tone: str) -> str:
-    low, high = word_bounds(tone)
-    filler = " I am only describing what I chose for this visit."
-    while len(text.split()) < low:
-        nxt = text + filler
-        if len(nxt.split()) > high:
-            break
-        text = nxt
-    return text
+def _max_sentences(tone: str) -> int:
+    return {"short": 2, "detailed": 6}.get(tone, 4)
 
 
-def template_draft(inp: DraftInput) -> str:
-    sentences: list[str] = []
-    dishes = _join(inp.items)
-    sentences.append(_opening_sentence(inp, dishes))
-    if inp.ratings:
-        bits = [
-            f"{aspect} was {_RATING_WORDS.get(int(score), str(score))}"
-            for aspect, score in inp.ratings.items()
-        ]
-        sentences.append("I rated " + ", ".join(bits) + ".")
-    labels = _join(inp.tags)
-    if labels:
-        sentences.append(f"I would mention {labels}.")
-    note = _safe_note(inp.raw_text)
-    if note:
-        sentences.append(note)
-    if not sentences:
-        sentences.append("I wanted to note how this visit went.")
-    return _pad(" ".join(sentences), inp.tone)
+def template_draft(inp: DraftInput, *, rng: random.Random | None = None) -> str:
+    rng = rng or random.Random()
+    brief = build_brief(inp, rng=rng)
+    sentences: list[str] = [_opening(brief, rng)]
+
+    aspects = [a for a in brief.liked_aspects if not (a == "food" and brief.dishes)]
+    if aspects and (brief.overall or 3) >= 3:
+        names = _join([_ASPECT_NAMES[a] for a in aspects])
+        sentences.append(_cap(rng.choice(_ALSO).format(A=names)))
+
+    if brief.descriptors:
+        sentences.append(f"It felt {_join(brief.descriptors)}.")
+
+    for point in [pt for pt in brief.praise_points if len(pt.split()) >= 3][:1]:
+        sentences.append(_cap(_sentence(point)))
+
+    if brief.minor_notes:
+        concern = brief.minor_notes[0]
+        sentences.append(_sentence(rng.choice(_CONCERN).format(c=concern, C=_cap(concern)).rstrip(".")))
+
+    limit = _max_sentences(inp.tone)
+    return " ".join(sentences[:limit])

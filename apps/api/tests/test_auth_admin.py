@@ -178,3 +178,40 @@ def test_admin_replaces_menu_tags_status_and_delete(client: TestClient, db: Sess
     assert deleted.json() == {"deleted": True}
     missing = client.get(f"/api/admin/restaurants/{restaurant_id}", headers=headers)
     assert missing.status_code == 404
+
+
+def test_owner_metrics_flag_low_star_visits_for_attention(client: TestClient, db: Session) -> None:
+    from app.models import DinerSession, PrivateFeedback, Restaurant
+
+    demo = db.query(Restaurant).filter(Restaurant.slug == TEST_SLUG).one()
+    _user(db, email="attn@demo.test", password="owner-pass-1", role="owner", restaurant_id=demo.id)
+    quiet = DinerSession(restaurant_id=demo.id, device_hash="a", overall_rating=1, items=["Dal"], raw_text="cold")
+    noted = DinerSession(restaurant_id=demo.id, device_hash="b", overall_rating=2)
+    happy = DinerSession(restaurant_id=demo.id, device_hash="c", overall_rating=5)
+    db.add_all([quiet, noted, happy])
+    db.flush()
+    db.add(PrivateFeedback(restaurant_id=demo.id, session_id=noted.id, message="Waited long", rating=2))
+    db.add(PrivateFeedback(restaurant_id=demo.id, message="Lovely", rating=5))
+    db.commit()
+
+    token = _login(client, "attn@demo.test", "owner-pass-1")
+    data = client.get("/api/owner/metrics", headers={"Authorization": f"Bearer {token}"}).json()
+    kinds = sorted((item["kind"], item["rating"]) for item in data["attention"])
+    assert kinds == [("feedback", 2), ("session", 1)]
+    session_item = next(item for item in data["attention"] if item["kind"] == "session")
+    assert session_item["items"] == ["Dal"]
+    assert session_item["note"] == "cold"
+
+
+def test_owner_metrics_include_star_rating_stats(client: TestClient, db: Session) -> None:
+    from app.models import DinerSession, Restaurant
+
+    demo = db.query(Restaurant).filter(Restaurant.slug == TEST_SLUG).one()
+    _user(db, email="stars@demo.test", password="owner-pass-1", role="owner", restaurant_id=demo.id)
+    for stars in (5, 5, 4, 1, None):
+        db.add(DinerSession(restaurant_id=demo.id, device_hash="h", overall_rating=stars))
+    db.commit()
+
+    token = _login(client, "stars@demo.test", "owner-pass-1")
+    data = client.get("/api/owner/metrics", headers={"Authorization": f"Bearer {token}"}).json()
+    assert data["ratings"] == {"count": 4, "average": 3.75, "distribution": [1, 0, 0, 1, 2]}

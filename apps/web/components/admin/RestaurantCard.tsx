@@ -21,11 +21,11 @@ interface RestaurantCardProps {
   onDeleted: (restaurantId: number) => void;
 }
 
-function StatBox({ label, value }: { label: string; value: number | null }) {
+function StatBox({ label, value }: { label: string; value: number | string | null }) {
   return (
-    <div className="rounded-xl bg-neutral-50 px-3 py-3">
-      <p className="text-xl font-semibold tabular-nums">{value == null ? "—" : value}</p>
-      <p className="mt-1 text-xs text-neutral-500">{label}</p>
+    <div className="rounded-2xl bg-tint px-3 py-3">
+      <p className="font-display text-2xl font-extrabold tabular-nums">{value == null ? "—" : value}</p>
+      <p className="mt-1 text-xs text-muted">{label}</p>
     </div>
   );
 }
@@ -86,20 +86,20 @@ export function RestaurantCard({
   }
 
   return (
-    <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+    <article className="sticker p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h2 className="text-2xl font-bold tracking-tight">{detail.name}</h2>
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">{detail.name}</h2>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <span
             className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-              active ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"
+              active ? "bg-pine/15 text-pine" : "bg-marigold/25 text-ink"
             }`}
           >
             {active ? "Active" : "Suspended"}
           </span>
           {active ? (
             <button
-              className="rounded-full border px-3 py-1 text-xs"
+              className="btn btn-secondary btn-sm"
               type="button"
               onClick={() => setSuspendOpen(true)}
             >
@@ -107,7 +107,7 @@ export function RestaurantCard({
             </button>
           ) : (
             <button
-              className="rounded-full border px-3 py-1 text-xs"
+              className="btn btn-secondary btn-sm"
               disabled={statusBusy}
               type="button"
               onClick={() => void applyStatus(true)}
@@ -116,7 +116,7 @@ export function RestaurantCard({
             </button>
           )}
           <button
-            className="rounded-full border border-red-200 px-3 py-1 text-xs text-red-700"
+            className="btn btn-secondary btn-sm !text-danger"
             type="button"
             onClick={() => {
               setDeleteError(null);
@@ -126,43 +126,47 @@ export function RestaurantCard({
             Delete Restaurant
           </button>
           <span
-            className="h-5 w-5 shrink-0 rounded-full border border-black/10"
+            className="h-5 w-5 shrink-0 rounded-full border-2 border-line"
             style={{ background: detail.brand_color || "#c45c26" }}
           />
-          <a className="font-mono text-sm underline" href={`/r/${detail.slug}`} rel="noreferrer" target="_blank">
+          <a className="font-mono text-sm font-semibold underline decoration-dotted underline-offset-4" href={`/r/${detail.slug}`} rel="noreferrer" target="_blank">
             /r/{detail.slug}
           </a>
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-neutral-600">
+      <p className="mt-3 text-xs text-muted">
         {detail.google_place_id} | {formatAdded(detail.created_at)}
       </p>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <StatBox label="Total Scans" value={metrics ? metrics.funnel.scans : null} />
         <StatBox label="Completed" value={metrics ? metrics.funnel.started : null} />
         <StatBox label="Google Click-throughs" value={metrics ? metrics.funnel.opened_google : null} />
         <StatBox label="Private Feedback" value={metrics ? metrics.feedback.length : null} />
+        <StatBox
+          label="Avg. Stars"
+          value={metrics?.ratings?.average != null ? `${metrics.ratings.average.toFixed(1)} ★` : null}
+        />
       </div>
 
-      <div className="mt-4 border-t border-neutral-100 pt-3">
+      <div className="mt-4 border-t border-hairline pt-3">
         <div className="flex items-center justify-between gap-2">
-          <button className="text-left text-sm font-medium" type="button" onClick={() => setMenuOpen((open) => !open)}>
+          <button className="text-left font-display text-base font-bold" type="button" onClick={() => setMenuOpen((open) => !open)}>
             Menu Items ({detail.menu.length})
           </button>
-          <button className="text-sm underline" type="button" onClick={() => setEditMenu(true)}>
+          <button className="link-quiet text-sm" type="button" onClick={() => setEditMenu(true)}>
             Edit
           </button>
         </div>
         {menuOpen ? (
           detail.menu.length === 0 ? (
-            <p className="mt-2 text-sm text-neutral-600">No menu items added</p>
+            <p className="mt-2 text-sm text-muted">No menu items added</p>
           ) : (
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               {[...menuGroups.entries()].map(([category, names]: [string, string[]]) => (
                 <div key={category}>
-                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">{category}</p>
+                  <p className="eyebrow">{category}</p>
                   <ul className="mt-1 list-disc pl-4 text-sm">
                     {names.map((name: string) => (
                       <li key={name}>{name}</li>
@@ -175,30 +179,30 @@ export function RestaurantCard({
         ) : null}
       </div>
 
-      <div className="mt-3 border-t border-neutral-100 pt-3">
+      <div className="mt-3 border-t border-hairline pt-3">
         <div className="flex items-center justify-between gap-2">
-          <button className="text-left text-sm font-medium" type="button" onClick={() => setTagsOpen((open) => !open)}>
+          <button className="text-left font-display text-base font-bold" type="button" onClick={() => setTagsOpen((open) => !open)}>
             Tag Bank ({detail.tags.length} tags)
           </button>
-          <button className="text-sm underline" type="button" onClick={() => setEditTags(true)}>
+          <button className="link-quiet text-sm" type="button" onClick={() => setEditTags(true)}>
             Edit
           </button>
         </div>
         {tagsOpen ? (
           detail.tags.length === 0 ? (
-            <p className="mt-2 text-sm text-neutral-600">No tags added</p>
+            <p className="mt-2 text-sm text-muted">No tags added</p>
           ) : (
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               {[...tagGroups.entries()]
                 .filter((entry: [string, string[]]) => entry[1].length > 0)
                 .map(([aspect, labels]: [string, string[]]) => (
                   <div key={aspect}>
-                    <p className="text-xs font-medium capitalize text-neutral-500">{aspect}</p>
+                    <p className="eyebrow !normal-case">{aspect}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {labels.map((label: string) => (
                         <span
                           key={`${aspect}-${label}`}
-                          className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-sm"
+                          className="rounded-full border-2 border-hairline bg-white px-3 py-1 text-sm font-semibold"
                         >
                           {label}
                         </span>
@@ -211,8 +215,8 @@ export function RestaurantCard({
         ) : null}
       </div>
 
-      <div className="mt-3 border-t border-neutral-100 pt-3">
-        <button className="w-full text-left text-sm font-medium" type="button" onClick={() => setQrOpen((open) => !open)}>
+      <div className="mt-3 border-t border-hairline pt-3">
+        <button className="w-full text-left font-display text-base font-bold" type="button" onClick={() => setQrOpen((open) => !open)}>
           QR Code
         </button>
         {qrOpen ? (
@@ -227,7 +231,7 @@ export function RestaurantCard({
         ) : null}
       </div>
 
-      <Link className="mt-4 inline-block text-sm underline" href={`/admin/restaurants/${detail.id}`}>
+      <Link className="mt-4 inline-block link-quiet text-sm" href={`/admin/restaurants/${detail.id}`}>
         View full details →
       </Link>
 

@@ -30,6 +30,11 @@ def _reset_limiter() -> None:
     limiter.reset()
 
 
+@pytest.fixture(autouse=True)
+def _no_llm_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.llm.gateway._BACKOFF_SECONDS", 0.0)
+
+
 @pytest.fixture()
 def db() -> Generator[Session, None, None]:
     engine = create_engine(

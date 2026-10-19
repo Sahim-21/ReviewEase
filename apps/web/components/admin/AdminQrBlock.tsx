@@ -99,22 +99,22 @@ export function AdminQrBlock({
   return (
     <div>
       {qrLoading ? (
-        <p className="mt-3 text-sm text-neutral-500">Loading…</p>
+        <p className="mt-3 text-sm text-muted">Loading…</p>
       ) : qrError || !qrUrl ? (
-        <p className="mt-3 text-sm text-red-700">{qrError ?? "Could not load QR code. Refresh to try again."}</p>
+        <p className="mt-3 text-sm font-medium text-danger">{qrError ?? "Could not load QR code. Refresh to try again."}</p>
       ) : (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img alt={`${restaurantName} QR`} className={`mt-4 bg-white object-contain ${imageClassName}`} src={qrUrl} />
           <div className="mt-4 flex flex-wrap gap-2">
             <button
-              className="rounded-full bg-foreground px-4 py-2 text-sm text-background"
+              className="btn btn-primary btn-sm"
               type="button"
               onClick={downloadQr}
             >
               Download QR
             </button>
-            <button className="rounded-full border px-4 py-2 text-sm" type="button" onClick={() => setConfirmRegen(true)}>
+            <button className="btn btn-secondary btn-sm" type="button" onClick={() => setConfirmRegen(true)}>
               Regenerate QR
             </button>
           </div>
@@ -122,19 +122,19 @@ export function AdminQrBlock({
       )}
 
       {confirmRegen ? (
-        <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div role="dialog" className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-            <h2 className="text-lg font-semibold">Regenerate QR code?</h2>
-            <p className="mt-2 text-sm text-neutral-600">
+        <div className="fixed inset-0 z-50 flex animate-fade-in items-end justify-center bg-ink/50 p-4 backdrop-blur-[2px] sm:items-center">
+          <div role="dialog" className="sticker w-full max-w-md animate-pop-in p-6">
+            <h2 className="font-display text-2xl font-extrabold tracking-tight">Regenerate QR code?</h2>
+            <p className="mt-2 text-sm text-muted">
               This will create a new QR image for this restaurant. The old printed QR codes will still work — only
               the image file changes.
             </p>
             <div className="mt-4 flex gap-2">
-              <button className="flex-1 rounded-full border py-2 text-sm" type="button" onClick={() => setConfirmRegen(false)}>
+              <button className="btn btn-secondary btn-sm flex-1" type="button" onClick={() => setConfirmRegen(false)}>
                 Cancel
               </button>
               <button
-                className="flex-[2] rounded-full bg-foreground py-2 text-sm text-background"
+                className="btn btn-primary btn-sm flex-[2]"
                 type="button"
                 onClick={() => void confirmRegenerate()}
               >
@@ -146,7 +146,7 @@ export function AdminQrBlock({
       ) : null}
 
       {toast ? (
-        <p className="fixed bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full bg-neutral-900 px-4 py-2 text-sm text-white">
+        <p className="fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 animate-pop-in rounded-full border-2 border-line bg-ink px-5 py-2.5 text-sm font-semibold text-white shadow-pop-sm">
           {toast}
         </p>
       ) : null}
