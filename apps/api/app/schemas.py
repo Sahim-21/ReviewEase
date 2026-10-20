@@ -270,6 +270,7 @@ class SessionDraftResponse(BaseModel):
     text: str
     provider: str
     grounding_ok: bool
+    drafts_left: int | None = None
 
 
 class FeedbackRequest(BaseModel):
@@ -318,7 +319,17 @@ class AuthUser(BaseModel):
     email: str
     role: str
     restaurant_id: int | None = None
-    token: str
+    # Only returned to API clients that send `X-Auth-Mode: bearer`; the web app uses the cookie.
+    token: str | None = None
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=10, max_length=128)
+
+
+class SessionStepRequest(BaseModel):
+    step: str = Field(pattern="^(stars|tags|notes|review)$")
 
 
 class AdminRestaurantBody(BaseModel):
@@ -417,7 +428,10 @@ class RestaurantDeletedResponse(BaseModel):
 
 class FunnelCounts(BaseModel):
     scans: int
+    # Sessions that moved past the first screen (reached the stars step).
     started: int
+    # Sessions that finished rating (reached tags or notes).
+    rated: int = 0
     drafts: int
     copied: int
     opened_google: int
@@ -466,3 +480,16 @@ class OwnerMetrics(BaseModel):
     feedback: list[FeedbackItem]
     ratings: RatingStats = Field(default_factory=RatingStats)
     attention: list[AttentionItem] = Field(default_factory=list)
+
+
+class RestaurantStats(BaseModel):
+    scans: int = 0
+    started: int = 0
+    opened_google: int = 0
+    feedback: int = 0
+    average_stars: float | None = None
+
+
+class AdminOverviewItem(BaseModel):
+    detail: AdminRestaurantDetail
+    stats: RestaurantStats

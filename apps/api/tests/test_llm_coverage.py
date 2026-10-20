@@ -218,7 +218,8 @@ def test_qwen3_requests_skip_hidden_reasoning() -> None:
     assert payload["reasoning_effort"] == "none"
     assert payload["max_tokens"] == 450
     other = GroqProvider("key", "openai/gpt-oss-20b")._payload("s", "u", max_tokens=450, temperature=0.8)
-    assert "reasoning_effort" not in other
+    assert other["reasoning_effort"] == "low"
+    assert other["max_completion_tokens"] >= 1200
 
 
 def test_groq_raises_when_the_answer_was_cut_off() -> None:

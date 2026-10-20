@@ -36,9 +36,15 @@ async function parseError(res: Response): Promise<ApiError> {
   return new ApiError(res.statusText || "Request failed", res.status);
 }
 
+export function restaurantTag(slug: string): string {
+  return `restaurant:${slug}`;
+}
+
 export async function getRestaurant(slug: string): Promise<RestaurantPublic> {
   const res = await fetch(`${API_URL}/api/r/${encodeURIComponent(slug)}`, {
-    next: { revalidate: 60 },
+    // Cached so a sleeping API does not delay every scan; pausing a restaurant revalidates
+    // this tag immediately (see app/api/revalidate/route.ts).
+    next: { revalidate: 300, tags: [restaurantTag(slug)] },
   });
   if (res.status === 404) {
     throw new ApiError("Restaurant not found", 404, "RESTAURANT_NOT_FOUND");
@@ -138,4 +144,22 @@ export async function sendFeedback(
     throw await parseError(res);
   }
   return res.json() as Promise<FeedbackResponse>;
+}
+
+/** Funnel tracking. Fire-and-forget: a failure here must never block the diner. */
+export async function recordStep(
+  sessionId: number,
+  token: string,
+  step: "stars" | "tags" | "notes" | "review",
+): Promise<void> {
+  try {
+    await fetch(`${API_URL}/api/sessions/${sessionId}/step`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ step }),
+      keepalive: true,
+    });
+  } catch {
+    /* ignore */
+  }
 }

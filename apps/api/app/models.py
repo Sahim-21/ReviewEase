@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func, true
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, func, true
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.types import PortableJSON
@@ -87,6 +87,7 @@ class DinerSession(Base):
             "overall_rating IS NULL OR (overall_rating >= 1 AND overall_rating <= 5)",
             name="ck_sessions_overall_rating",
         ),
+        Index("ix_sessions_restaurant_rating", "restaurant_id", "overall_rating"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -138,6 +139,10 @@ class PrivateFeedback(Base):
 
 class Event(Base):
     __tablename__ = "events"
+    __table_args__ = (
+        Index("ix_events_restaurant_type_ts", "restaurant_id", "type", "ts"),
+        Index("ix_events_session_type", "session_id", "type"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id"), index=True)
@@ -166,3 +171,13 @@ class User(Base):
     restaurant_id: Mapped[int | None] = mapped_column(ForeignKey("restaurants.id"), nullable=True, index=True)
 
     restaurant: Mapped[Restaurant | None] = relationship(back_populates="users")
+
+
+class RateLimit(Base):
+    """One fixed-window counter; the key embeds the rule, the subject and the window bucket."""
+
+    __tablename__ = "rate_limits"
+
+    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

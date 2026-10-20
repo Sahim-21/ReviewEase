@@ -6,7 +6,6 @@ import { clearAuth } from "@/lib/auth";
 import { fetchQr, isAuthFailure } from "@/lib/staffApi";
 
 type AdminQrBlockProps = {
-  token: string;
   restaurantId: number;
   slug: string;
   restaurantName: string;
@@ -15,7 +14,6 @@ type AdminQrBlockProps = {
 };
 
 export function AdminQrBlock({
-  token,
   restaurantId,
   slug,
   restaurantName,
@@ -39,7 +37,7 @@ export function AdminQrBlock({
       setQrLoading(true);
       setQrError(null);
       try {
-        const blob = await fetchQr(token, restaurantId, "png", undefined, {
+        const blob = await fetchQr(restaurantId, "png", undefined, {
           regen,
           bust: Date.now(),
         });
@@ -63,7 +61,7 @@ export function AdminQrBlock({
         setQrLoading(false);
       }
     },
-    [onAuthFailure, restaurantId, token],
+    [onAuthFailure, restaurantId],
   );
 
   useEffect(() => {

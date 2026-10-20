@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { CopyFallbackSheet } from "@/components/feedback/CopyFallbackSheet";
 import { PrivateFeedbackModal } from "@/components/feedback/PrivateFeedbackModal";
 import { Done } from "@/components/steps/Done";
 import { Draft } from "@/components/steps/Draft";
@@ -11,8 +12,9 @@ import { Notes } from "@/components/steps/Notes";
 import { Stars } from "@/components/steps/Stars";
 import { Tags } from "@/components/steps/Tags";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { ErrorScreen } from "@/components/ui/ErrorScreen";
 import { RestaurantBanner } from "@/components/ui/RestaurantBanner";
-import { ApiError, completeSession, createDraft, startSession } from "@/lib/api";
+import { ApiError, completeSession, createDraft, recordStep, startSession } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
 import { getDeviceId } from "@/lib/device";
 import { googleReviewUrl } from "@/lib/google";
@@ -46,6 +48,9 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
   const [draftError, setDraftError] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [copyFallback, setCopyFallback] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [draftsLeft, setDraftsLeft] = useState<number | null>(null);
   const draftMetaRef = useRef<{ provider: string; grounding_ok: boolean } | null>(null);
   const prevStepRef = useRef<FlowStep>("meal");
   const reduceMotion = useReducedMotion();
@@ -66,15 +71,30 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
           setToken(session.token);
         }
       })
-      .catch(() => {
-        if (!cancelled) {
-          setDraftError("Could not start. You can still tap through.");
+      .catch((err: unknown) => {
+        if (cancelled) {
+          return;
         }
+        if (err instanceof ApiError && err.code === "RESTAURANT_PAUSED") {
+          setPaused(true);
+          return;
+        }
+        setDraftError("Could not start. You can still tap through.");
       });
     return () => {
       cancelled = true;
     };
   }, [restaurant.slug, table]);
+
+  // Funnel tracking: tell the API which step the diner reached (once per step, server-side).
+  useEffect(() => {
+    if (sessionId === null || token === null) {
+      return;
+    }
+    if (step === "stars" || step === "tags" || step === "notes" || step === "review") {
+      void recordStep(sessionId, token, step);
+    }
+  }, [step, sessionId, token]);
 
   const toggleItem = useCallback((name: string) => {
     setItems((current) =>
@@ -128,6 +148,9 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
           lang,
         });
         setDraft(result.text);
+        if (typeof result.drafts_left === "number") {
+          setDraftsLeft(result.drafts_left);
+        }
         draftMetaRef.current = { provider: result.provider, grounding_ok: result.grounding_ok };
       } catch (err) {
         const message = err instanceof ApiError ? err.message : "Could not write your review.";
@@ -166,8 +189,12 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
 
   const openGoogle = () => {
     const url = googleReviewUrl(restaurant.google_place_id);
-    const popup = window.open(url, "_blank", "noopener,noreferrer");
-    if (!popup) {
+    // Passing "noopener" makes window.open always return null (per spec), which used to send
+    // this tab to Google as well. Open normally and cut the opener link by hand instead.
+    const popup = window.open(url, "_blank");
+    if (popup) {
+      popup.opener = null;
+    } else {
       window.location.href = url;
     }
   };
@@ -175,11 +202,33 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
   const copyAndOpen = async () => {
     setCopying(true);
     const copied = await copyText(draft);
-    await logComplete(copied, true);
-    openGoogle();
     setCopying(false);
+    if (!copied) {
+      // Don't send the diner to an empty Google box: let them copy by hand first.
+      setCopyFallback(true);
+      return;
+    }
+    // Open Google straight away, while the tap still counts as a user gesture; awaiting the
+    // logging call first made browsers block the pop-up and navigate the diner away instead.
+    openGoogle();
+    void logComplete(true, true);
     setStep("thanks");
   };
+
+  const openGoogleAfterManualCopy = () => {
+    setCopyFallback(false);
+    openGoogle();
+    void logComplete(false, true);
+    setStep("thanks");
+  };
+
+  if (paused) {
+    return (
+      <div style={brandVars(restaurant.brand_color)}>
+        <ErrorScreen emoji="⏸️" title="This restaurant isn't taking reviews right now" message="Please check back later." />
+      </div>
+    );
+  }
 
   const progress = PROGRESS_STEP[step];
   const slideX = reduceMotion ? 0 : 36;
@@ -276,6 +325,7 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
                   error={draftError}
                   copying={copying}
                   onChange={setDraft}
+                  draftsLeft={draftsLeft}
                   onTryAgain={() => void requestDraft("retry")}
                   onCopyAndOpen={() => void copyAndOpen()}
                   onPrivateFeedback={() => setFeedbackOpen(true)}
@@ -288,6 +338,13 @@ export function DinerFlow({ restaurant, table }: DinerFlowProps) {
           </AnimatePresence>
         </div>
       </div>
+      {copyFallback ? (
+        <CopyFallbackSheet
+          text={draft}
+          onOpenGoogle={openGoogleAfterManualCopy}
+          onClose={() => setCopyFallback(false)}
+        />
+      ) : null}
       {feedbackOpen ? (
         <PrivateFeedbackModal
           slug={restaurant.slug}

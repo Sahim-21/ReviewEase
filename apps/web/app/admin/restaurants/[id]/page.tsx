@@ -15,7 +15,8 @@ export default function AdminRestaurantDetailPage() {
   const params = useParams<{ id: string }>();
   const restaurantId = Number(params.id);
 
-  const [token, setToken] = useState<string | null>(null);
+  // True once the staff session has been confirmed with the API.
+  const [signedIn, setSignedIn] = useState(false);
   const [detail, setDetail] = useState<AdminRestaurantDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(true);
@@ -36,20 +37,20 @@ export default function AdminRestaurantDetailPage() {
       return;
     }
     let cancelled = false;
-    fetchMe(auth.token)
+    fetchMe()
       .then((fresh) => {
         if (cancelled) {
-          return null;
+          return false;
         }
         writeAuth(fresh);
-        setToken(fresh.token);
-        return fresh.token;
+        setSignedIn(true);
+        return true;
       })
-      .then((staffToken) => {
-        if (!staffToken || cancelled) {
+      .then((ok) => {
+        if (!ok || cancelled) {
           return;
         }
-        return fetchAdminRestaurant(staffToken, restaurantId).then((row) => {
+        return fetchAdminRestaurant(restaurantId).then((row) => {
           if (!cancelled) {
             setDetail(row);
           }
@@ -77,13 +78,13 @@ export default function AdminRestaurantDetailPage() {
   }, [restaurantId, router]);
 
   useEffect(() => {
-    if (!token || !Number.isInteger(restaurantId) || restaurantId < 1) {
+    if (!signedIn || !Number.isInteger(restaurantId) || restaurantId < 1) {
       return;
     }
     let cancelled = false;
     setMetricsLoading(true);
     setMetricsError(null);
-    fetchOwnerMetrics(token, restaurantId)
+    fetchOwnerMetrics(restaurantId)
       .then((row) => {
         if (!cancelled) {
           setMetrics(row);
@@ -108,7 +109,7 @@ export default function AdminRestaurantDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [restaurantId, router, token]);
+  }, [restaurantId, router, signedIn]);
 
   const menuGroups = useMemo(() => (detail ? groupMenu(detail.menu) : new Map<string, string[]>()), [detail]);
   const tagGroups = useMemo(() => (detail ? groupTags(detail.tags) : new Map<string, string[]>()), [detail]);
@@ -236,9 +237,8 @@ export default function AdminRestaurantDetailPage() {
 
       <section className="sticker-flat p-5">
         <h2 className="font-display text-lg font-bold">QR code</h2>
-        {token ? (
+        {signedIn ? (
           <AdminQrBlock
-            token={token}
             restaurantId={restaurantId}
             slug={detail?.slug ?? "restaurant"}
             restaurantName={detail?.name ?? "Restaurant"}

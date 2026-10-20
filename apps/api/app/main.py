@@ -4,8 +4,10 @@ from fastapi.responses import JSONResponse
 
 from app.logging import RequestLogMiddleware, configure_logging, cors_origins
 from app.routers import admin, auth, feedback, health, owner, restaurants, sessions
+from app.security import check_production_secrets
 
 configure_logging()
+check_production_secrets()
 
 app = FastAPI(title="ReviewEase API", version="0.1.0")
 app.add_middleware(RequestLogMiddleware)

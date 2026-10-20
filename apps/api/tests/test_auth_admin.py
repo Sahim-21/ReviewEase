@@ -22,7 +22,9 @@ def _user(db: Session, *, email: str, password: str, role: str, restaurant_id: i
 
 
 def _login(client: TestClient, email: str, password: str) -> str:
-    response = client.post("/api/auth/login", json={"email": email, "password": password})
+    response = client.post(
+        "/api/auth/login", json={"email": email, "password": password}, headers={"X-Auth-Mode": "bearer"}
+    )
     assert response.status_code == 200, response.text
     return str(response.json()["token"])
 

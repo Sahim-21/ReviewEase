@@ -1,12 +1,15 @@
 from dataclasses import dataclass
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.errors import ApiError
 from app.repositories import users as user_repo
+from app.security import CSRF_HEADER, CSRF_VALUE, STAFF_COOKIE
 from app.tokens import TokenError, decode_user_token
+
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
 @dataclass
@@ -17,18 +20,25 @@ class CurrentUser:
     restaurant_id: int | None
 
 
-def _bearer(authorization: str | None) -> str:
+def _token(request: Request, authorization: str | None) -> str:
+    """Bearer header (API clients, tests) or the HttpOnly staff cookie (the web app)."""
     if authorization and authorization.lower().startswith("bearer "):
         return authorization.split(" ", 1)[1].strip()
+    cookie = request.cookies.get(STAFF_COOKIE)
+    if cookie:
+        if request.method not in _SAFE_METHODS and request.headers.get(CSRF_HEADER) != CSRF_VALUE:
+            raise ApiError(403, "CSRF_REJECTED", "Missing request header")
+        return cookie
     raise ApiError(401, "AUTH_REQUIRED", "Sign in required")
 
 
 def require_user(
+    request: Request,
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> CurrentUser:
     try:
-        payload = decode_user_token(_bearer(authorization))
+        payload = decode_user_token(_token(request, authorization))
     except TokenError as exc:
         raise ApiError(401, "AUTH_INVALID", str(exc)) from exc
     user = user_repo.get_by_id(db, int(payload["sub"]))  # type: ignore[arg-type]

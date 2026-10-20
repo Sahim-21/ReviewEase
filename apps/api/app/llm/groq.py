@@ -40,6 +40,7 @@ class GroqProvider:
     ) -> None:
         self.api_key = api_key
         self.model = resolve_groq_model(model)
+        self.name = "groq" if self.model == resolve_groq_model("") else f"groq:{self.model}"
         self._client = client
 
     async def generate(
@@ -68,6 +69,7 @@ class GroqProvider:
         }
         if self.model.startswith("openai/gpt-oss"):
             body["max_completion_tokens"] = max(max_tokens, 1200)
+            body["reasoning_effort"] = "low"
         else:
             body["max_tokens"] = max_tokens
         if self.model.startswith("qwen/qwen3"):

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { StaffAccountActions } from "@/components/admin/StaffAccountActions";
 import { Icon } from "@/components/ui/Icon";
 import { StarsDisplay } from "@/components/ui/StarRating";
 import { formatAdded } from "@/lib/adminFormat";
@@ -71,7 +72,7 @@ export default function DashboardPage() {
     setUser(auth);
     const rid = auth.role === "admin" ? Number(adminRestaurantId) || undefined : undefined;
     if (auth.role === "admin" && rid == null) {
-      fetchMe(auth.token)
+      fetchMe()
         .then((fresh) => {
           writeAuth(fresh);
           setUser(fresh);
@@ -86,7 +87,7 @@ export default function DashboardPage() {
         });
       return;
     }
-    fetchOwnerMetrics(auth.token, rid)
+    fetchOwnerMetrics(rid)
       .then(setMetrics)
       .catch((err: unknown) => {
         if (isAuthFailure(err)) {
@@ -105,6 +106,7 @@ export default function DashboardPage() {
     return Math.max(
       metrics.funnel.scans,
       metrics.funnel.started,
+      metrics.funnel.rated ?? 0,
       metrics.funnel.drafts,
       metrics.funnel.copied,
       metrics.funnel.opened_google,
@@ -136,17 +138,7 @@ export default function DashboardPage() {
               Admin
             </Link>
           ) : null}
-          <button
-            className="btn btn-secondary btn-sm"
-            type="button"
-            onClick={() => {
-              clearAuth();
-              router.push("/login");
-            }}
-          >
-            <Icon name="logout" size={16} />
-            Sign out
-          </button>
+          <StaffAccountActions />
         </div>
       </header>
 
@@ -208,10 +200,11 @@ export default function DashboardPage() {
               <p className="text-xs text-muted">Counts from diner events, scoped to this restaurant.</p>
             </div>
             <FunnelBar label="Scans" value={metrics.funnel.scans} max={maxFunnel} delay={0} />
-            <FunnelBar label="Started" value={metrics.funnel.started} max={maxFunnel} delay={80} />
-            <FunnelBar label="Drafts" value={metrics.funnel.drafts} max={maxFunnel} delay={160} />
+            <FunnelBar label="Started" value={metrics.funnel.started} max={maxFunnel} delay={60} />
+            <FunnelBar label="Rated" value={metrics.funnel.rated ?? 0} max={maxFunnel} delay={120} />
+            <FunnelBar label="Drafts" value={metrics.funnel.drafts} max={maxFunnel} delay={180} />
             <FunnelBar label="Copied" value={metrics.funnel.copied} max={maxFunnel} delay={240} />
-            <FunnelBar label="Opened Google" value={metrics.funnel.opened_google} max={maxFunnel} delay={320} />
+            <FunnelBar label="Opened Google" value={metrics.funnel.opened_google} max={maxFunnel} delay={300} />
           </section>
 
           <section className="sticker flex flex-col gap-4 p-5 sm:flex-row sm:items-center">

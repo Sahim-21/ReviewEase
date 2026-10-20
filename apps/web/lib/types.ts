@@ -38,6 +38,7 @@ export type DraftResponse = {
   text: string;
   provider: string;
   grounding_ok: boolean;
+  drafts_left?: number | null;
 };
 
 export type CompleteResponse = {
@@ -88,7 +89,10 @@ export type OwnerMetrics = {
   restaurant_name: string;
   funnel: {
     scans: number;
+    /** Diners who moved past the first screen. */
     started: number;
+    /** Diners who finished rating. */
+    rated?: number;
     drafts: number;
     copied: number;
     opened_google: number;
@@ -118,4 +122,17 @@ export type OwnerMetrics = {
     average: number | null;
     distribution: number[];
   };
+};
+
+export type RestaurantStats = {
+  scans: number;
+  started: number;
+  opened_google: number;
+  feedback: number;
+  average_stars: number | null;
+};
+
+export type AdminOverviewItem = {
+  detail: AdminRestaurantDetail;
+  stats: RestaurantStats;
 };

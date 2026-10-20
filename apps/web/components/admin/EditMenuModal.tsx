@@ -6,7 +6,6 @@ import { isAuthFailure, replaceMenuItems } from "@/lib/staffApi";
 import type { MenuItemPublic } from "@/lib/types";
 
 export interface EditMenuModalProps {
-  token: string;
   restaurantId: number;
   restaurantName: string;
   items: MenuItemPublic[];
@@ -30,7 +29,6 @@ function toRows(items: MenuItemPublic[]): MenuEditRow[] {
 }
 
 export function EditMenuModal({
-  token,
   restaurantId,
   restaurantName,
   items,
@@ -68,7 +66,7 @@ export function EditMenuModal({
       .map((row: MenuEditRow) => ({ name: row.name.trim(), category: row.category.trim() }))
       .filter((item: { name: string; category: string }) => item.name.length > 0 || item.category.length > 0);
     try {
-      const next = await replaceMenuItems(token, restaurantId, payload);
+      const next = await replaceMenuItems(restaurantId, payload);
       onSaved(next);
     } catch (err: unknown) {
       if (isAuthFailure(err)) {

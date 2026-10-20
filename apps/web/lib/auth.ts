@@ -1,33 +1,15 @@
-import { AUTH_COOKIE } from "@/lib/authCookie";
-
+/**
+ * Who is signed in, for the UI only. The session itself is the API's HttpOnly cookie
+ * (set through the /backend proxy), so no token is stored where page scripts can read it.
+ */
 export type AuthUser = {
   email: string;
   role: "admin" | "owner";
   restaurant_id: number | null;
-  token: string;
 };
 
 const KEY = "reviewease_auth";
-
-const COOKIE_MAX_AGE = 60 * 60 * 24;
-
-function setAuthCookie(token: string): void {
-  const secure = window.location.protocol === "https:";
-  const parts = [
-    `${AUTH_COOKIE}=${encodeURIComponent(token)}`,
-    "Path=/",
-    "SameSite=Lax",
-    `Max-Age=${COOKIE_MAX_AGE}`,
-  ];
-  if (secure) {
-    parts.push("Secure");
-  }
-  document.cookie = parts.join("; ");
-}
-
-function clearAuthCookie(): void {
-  document.cookie = `${AUTH_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
-}
+const LEGACY_COOKIE = "reviewease_staff";
 
 export function readAuth(): AuthUser | null {
   if (typeof window === "undefined") {
@@ -38,22 +20,27 @@ export function readAuth(): AuthUser | null {
     if (!raw) {
       return null;
     }
-    const user = JSON.parse(raw) as AuthUser;
-    if (user.token) {
-      setAuthCookie(user.token);
+    const parsed = JSON.parse(raw) as AuthUser & { token?: string };
+    if (parsed.token) {
+      // Written by the old token-in-localStorage version: drop it and sign in again.
+      clearAuth();
+      return null;
     }
-    return user;
+    return { email: parsed.email, role: parsed.role, restaurant_id: parsed.restaurant_id };
   } catch {
     return null;
   }
 }
 
 export function writeAuth(user: AuthUser): void {
-  localStorage.setItem(KEY, JSON.stringify(user));
-  setAuthCookie(user.token);
+  localStorage.setItem(
+    KEY,
+    JSON.stringify({ email: user.email, role: user.role, restaurant_id: user.restaurant_id }),
+  );
 }
 
 export function clearAuth(): void {
   localStorage.removeItem(KEY);
-  clearAuthCookie();
+  // Remove the readable cookie the previous version used to mirror the token.
+  document.cookie = `${LEGACY_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
 }

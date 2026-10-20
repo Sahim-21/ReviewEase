@@ -9,8 +9,10 @@ from app.errors import ApiError
 from app.passwords import hash_password
 from app.qr import qr_png, qr_svg, review_url
 from app.repositories import menu_items, restaurants, tables, tags, users as user_repo
+from app.repositories.metrics import stats_for_restaurants
 from app.schemas import (
     AdminRestaurantBody,
+    AdminOverviewItem,
     AdminRestaurantDetail,
     MenuItemCreate,
     MenuItemPublic,
@@ -47,6 +49,33 @@ def list_restaurants(
         )
         for row in rows
     ]
+
+
+def _detail(db: Session, restaurant) -> AdminRestaurantDetail:  # type: ignore[no-untyped-def]
+    menu = menu_items.list_for_restaurant(db, restaurant.id, active_only=False)
+    tag_rows = tags.list_for_restaurant(db, restaurant.id)
+    return AdminRestaurantDetail(
+        id=restaurant.id,
+        slug=restaurant.slug,
+        name=restaurant.name,
+        google_place_id=restaurant.google_place_id,
+        brand_color=restaurant.brand_color,
+        created_at=restaurant.created_at.isoformat() if restaurant.created_at else "",
+        active=restaurant.active,
+        menu=[MenuItemPublic(id=item.id, name=item.name, category=item.category) for item in menu],
+        tags=[TagPublic(id=tag.id, label=tag.label, aspect=tag.aspect) for tag in tag_rows],
+    )
+
+
+@router.get("/overview", response_model=list[AdminOverviewItem])
+def overview(
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[AdminOverviewItem]:
+    """Every restaurant with its menu, tags and headline numbers in one call (was 2 calls each)."""
+    rows = restaurants.list_all(db)
+    stats = stats_for_restaurants(db, [row.id for row in rows])
+    return [AdminOverviewItem(detail=_detail(db, row), stats=stats[row.id]) for row in rows]
 
 
 @router.post("/restaurants", response_model=RestaurantSummary)

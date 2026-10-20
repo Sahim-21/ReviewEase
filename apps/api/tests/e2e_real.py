@@ -65,7 +65,9 @@ def _ensure_restaurant(client: httpx.Client) -> dict[str, object]:
         raise SystemExit(1)
 
     bootstrap_admin()
-    login = client.post("/api/auth/login", json={"email": email, "password": password})
+    login = client.post(
+        "/api/auth/login", json={"email": email, "password": password}, headers={"X-Auth-Mode": "bearer"}
+    )
     if login.status_code != 200:
         _fail("admin login", f"HTTP {login.status_code} {login.text}")
         raise SystemExit(1)

@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.errors import ApiError
+from app.limiter import FEEDBACK_PER_DEVICE, FEEDBACK_PER_IP, limiter
 from app.repositories import feedback as feedback_repo, restaurants, sessions as session_repo
 from app.schemas import FeedbackCreate, FeedbackRequest, FeedbackResponse
+from app.security import client_ip
 from app.tokens import TokenError, decode_session_token
 
 router = APIRouter(prefix="/api")
@@ -18,6 +21,7 @@ def _optional_bearer(authorization: str | None) -> str | None:
 @router.post("/feedback", response_model=FeedbackResponse)
 def submit_feedback(
     body: FeedbackRequest,
+    request: Request,
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
     x_session_token: str | None = Header(default=None, alias="X-Session-Token"),
@@ -40,7 +44,11 @@ def submit_feedback(
         session = session_repo.get_by_id(db, session_id)
         if session is None or session.restaurant_id != restaurant.id:
             raise HTTPException(status_code=404, detail="Session not found")
+        if not limiter.take(db, FEEDBACK_PER_DEVICE, session.device_hash):
+            raise ApiError(429, "RATE_LIMIT_FEEDBACK", "Too much feedback from this device. Try again later.")
 
+    if not limiter.take(db, FEEDBACK_PER_IP, client_ip(request)):
+        raise ApiError(429, "RATE_LIMIT_FEEDBACK", "Too much feedback from this network. Try again later.")
     row = feedback_repo.create(
         db,
         FeedbackCreate(
