@@ -12,7 +12,7 @@ def _repeat(sentence: str, words: int) -> str:
     out: list[str] = []
     while len(out) < words:
         out.extend(unit)
-    return " ".join(out[:words])
+    return " ".join(out[:words]).rstrip(".,") + "."
 
 
 HINGLISH_NOTE = "bttr chkn thoda tez tha wait lamba, gravy mast"
@@ -116,7 +116,7 @@ def test_hinglish_low_rating_eval_rejects_invented_praise() -> None:
 
 
 def test_gateway_passes_hinglish_and_kannada_to_model() -> None:
-    hinglish_out = _repeat("I had butter chicken, a bit spicy, and the wait was long.", 48)
+    hinglish_out = _repeat("I had butter chicken, a bit spicy, and the gravy was lovely.", 48)
     kannada_out = _repeat("I had butter chicken and it was good but service was slow.", 48)
     h_cap = Capture(hinglish_out)
     k_cap = Capture(kannada_out)

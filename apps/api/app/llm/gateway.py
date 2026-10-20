@@ -12,7 +12,7 @@ from app.llm.schemas import Draft, DraftInput
 from app.llm.template import template_draft
 
 TIMEOUT_SECONDS = 8.0
-MAX_TOKENS = 300
+MAX_TOKENS = 450
 _ATTEMPTS = 3
 _BACKOFF_SECONDS = 1.0
 

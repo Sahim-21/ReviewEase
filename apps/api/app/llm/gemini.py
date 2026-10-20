@@ -58,7 +58,10 @@ class GeminiProvider:
         if response.status_code == 429:
             raise RateLimited("gemini")
         response.raise_for_status()
-        content = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        candidate = response.json()["candidates"][0]
+        if candidate.get("finishReason") == "MAX_TOKENS":
+            raise RuntimeError("Gemini draft was cut off at the token limit")
+        content = candidate["content"]["parts"][0]["text"]
         if not isinstance(content, str) or not content.strip():
             raise RuntimeError("Gemini returned an empty draft")
         return content

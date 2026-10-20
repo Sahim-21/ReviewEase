@@ -70,6 +70,9 @@ class GroqProvider:
             body["max_completion_tokens"] = max(max_tokens, 1200)
         else:
             body["max_tokens"] = max_tokens
+        if self.model.startswith("qwen/qwen3"):
+            # Hidden reasoning shares max_tokens with the answer and can cut the review off mid-sentence.
+            body["reasoning_effort"] = "none"
         return body
 
     async def _complete(
@@ -93,7 +96,10 @@ class GroqProvider:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             raise RuntimeError(f"Groq HTTP {exc.response.status_code}") from exc
-        content = response.json()["choices"][0]["message"]["content"]
+        choice = response.json()["choices"][0]
+        content = choice["message"]["content"]
         if not isinstance(content, str) or not content.strip():
             raise RuntimeError("Groq returned an empty draft")
+        if choice.get("finish_reason") == "length":
+            raise RuntimeError("Groq draft was cut off at the token limit")
         return content
