@@ -14,6 +14,8 @@ type DraftProps = {
   retrying: boolean;
   error: string | null;
   copying: boolean;
+  /** Regenerations left in this session (from the API), or null if unknown. */
+  draftsLeft?: number | null;
   onChange: (value: string) => void;
   onTryAgain: () => void;
   onCopyAndOpen: () => void;
@@ -28,6 +30,7 @@ export function Draft({
   retrying,
   error,
   copying,
+  draftsLeft = null,
   onChange,
   onTryAgain,
   onCopyAndOpen,
@@ -157,14 +160,14 @@ export function Draft({
             tapFeedback();
             onTryAgain();
           }}
-          disabled={loading}
+          disabled={loading || draftsLeft === 0}
         >
           {retrying ? (
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/40 border-t-transparent" />
           ) : (
             <Icon name="refresh" />
           )}
-          Try again
+          {draftsLeft === 0 ? "No rewrites left" : draftsLeft != null ? `Try again (${draftsLeft} left)` : "Try again"}
         </button>
         <p className="text-center text-sm text-muted">Tap Submit on Google yourself – we never post for you.</p>
         {lowRating ? null : (

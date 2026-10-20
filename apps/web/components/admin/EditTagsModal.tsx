@@ -8,7 +8,6 @@ import type { TagPublic } from "@/lib/types";
 const ASPECT_HINTS = ["food", "service", "ambience", "value"];
 
 export interface EditTagsModalProps {
-  token: string;
   restaurantId: number;
   restaurantName: string;
   tags: TagPublic[];
@@ -32,7 +31,6 @@ function toRows(tags: TagPublic[]): TagEditRow[] {
 }
 
 export function EditTagsModal({
-  token,
   restaurantId,
   restaurantName,
   tags,
@@ -79,7 +77,7 @@ export function EditTagsModal({
       .map((row: TagEditRow) => ({ aspect: row.aspect.trim(), label: row.label.trim() }))
       .filter((tag: { aspect: string; label: string }) => tag.aspect.length > 0 || tag.label.length > 0);
     try {
-      const next = await replaceTags(token, restaurantId, payload);
+      const next = await replaceTags(restaurantId, payload);
       onSaved(next);
     } catch (err: unknown) {
       if (isAuthFailure(err)) {

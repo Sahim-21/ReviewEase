@@ -10,12 +10,11 @@ import { EditTagsModal } from "@/components/admin/EditTagsModal";
 import { SuspendServiceModal } from "@/components/admin/SuspendServiceModal";
 import { formatAdded, groupMenu, groupTags } from "@/lib/adminFormat";
 import { deleteRestaurant, isAuthFailure, setRestaurantStatus } from "@/lib/staffApi";
-import type { AdminRestaurantDetail, MenuItemPublic, OwnerMetrics, TagPublic } from "@/lib/types";
+import type { AdminRestaurantDetail, MenuItemPublic, RestaurantStats, TagPublic } from "@/lib/types";
 
 interface RestaurantCardProps {
-  token: string;
   detail: AdminRestaurantDetail;
-  metrics: OwnerMetrics | null;
+  stats: RestaurantStats | null;
   onAuthFailure: () => void;
   onUpdated: (detail: AdminRestaurantDetail) => void;
   onDeleted: (restaurantId: number) => void;
@@ -31,9 +30,8 @@ function StatBox({ label, value }: { label: string; value: number | string | nul
 }
 
 export function RestaurantCard({
-  token,
   detail,
-  metrics,
+  stats,
   onAuthFailure,
   onUpdated,
   onDeleted,
@@ -55,7 +53,7 @@ export function RestaurantCard({
   async function applyStatus(nextActive: boolean) {
     setStatusBusy(true);
     try {
-      const result = await setRestaurantStatus(token, detail.id, nextActive);
+      const result = await setRestaurantStatus(detail.id, nextActive, detail.slug);
       onUpdated({ ...detail, active: result.active });
       setSuspendOpen(false);
     } catch (err: unknown) {
@@ -72,7 +70,7 @@ export function RestaurantCard({
     setDeleteError(null);
     setDeleteBusy(true);
     try {
-      await deleteRestaurant(token, detail.id);
+      await deleteRestaurant(detail.id);
       onDeleted(detail.id);
     } catch (err: unknown) {
       if (isAuthFailure(err)) {
@@ -140,13 +138,13 @@ export function RestaurantCard({
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <StatBox label="Total Scans" value={metrics ? metrics.funnel.scans : null} />
-        <StatBox label="Completed" value={metrics ? metrics.funnel.started : null} />
-        <StatBox label="Google Click-throughs" value={metrics ? metrics.funnel.opened_google : null} />
-        <StatBox label="Private Feedback" value={metrics ? metrics.feedback.length : null} />
+        <StatBox label="Total Scans" value={stats ? stats.scans : null} />
+        <StatBox label="Started" value={stats ? stats.started : null} />
+        <StatBox label="Google Click-throughs" value={stats ? stats.opened_google : null} />
+        <StatBox label="Private Feedback" value={stats ? stats.feedback : null} />
         <StatBox
           label="Avg. Stars"
-          value={metrics?.ratings?.average != null ? `${metrics.ratings.average.toFixed(1)} ★` : null}
+          value={stats?.average_stars != null ? `${stats.average_stars.toFixed(1)} ★` : null}
         />
       </div>
 
@@ -221,7 +219,6 @@ export function RestaurantCard({
         </button>
         {qrOpen ? (
           <AdminQrBlock
-            token={token}
             restaurantId={detail.id}
             slug={detail.slug}
             restaurantName={detail.name}
@@ -237,7 +234,6 @@ export function RestaurantCard({
 
       {editMenu ? (
         <EditMenuModal
-          token={token}
           restaurantId={detail.id}
           restaurantName={detail.name}
           items={detail.menu}
@@ -251,7 +247,6 @@ export function RestaurantCard({
       ) : null}
       {editTags ? (
         <EditTagsModal
-          token={token}
           restaurantId={detail.id}
           restaurantName={detail.name}
           tags={detail.tags}

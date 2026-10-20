@@ -1,2 +1,2 @@
-/** Cookie mirror of the staff JWT so Next.js middleware can see it (localStorage is not on the request). */
-export const AUTH_COOKIE = "reviewease_staff";
+/** Name of the API's HttpOnly staff session cookie. Middleware only checks that it exists. */
+export const AUTH_COOKIE = "re_staff";

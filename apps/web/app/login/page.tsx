@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 import { Icon } from "@/components/ui/Icon";
-import { readAuth, writeAuth, type AuthUser } from "@/lib/auth";
-import { login } from "@/lib/staffApi";
+import { clearAuth, readAuth, writeAuth, type AuthUser } from "@/lib/auth";
+import { fetchMe, login } from "@/lib/staffApi";
 
 function staffHome(role: AuthUser["role"]): string {
   return role === "admin" ? "/admin" : "/dashboard";
@@ -32,12 +32,26 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const existing = readAuth();
-    if (!existing?.token) {
+    if (!readAuth()) {
       return;
     }
-    writeAuth(existing);
-    router.replace(nextAfterLogin(existing.role));
+    // Only skip the form if the server-side session is still valid.
+    let cancelled = false;
+    fetchMe()
+      .then((user) => {
+        if (!cancelled) {
+          writeAuth(user);
+          router.replace(nextAfterLogin(user.role));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          clearAuth();
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   async function onSubmit(event: FormEvent) {

@@ -1,6 +1,7 @@
-import { API_URL, ApiError } from "./api";
+import { ApiError } from "./api";
 import type { AuthUser } from "./auth";
 import type {
+  AdminOverviewItem,
   AdminRestaurantDetail,
   MenuItemPublic,
   OwnerMetrics,
@@ -9,6 +10,12 @@ import type {
   RestaurantSummary,
   TagPublic,
 } from "./types";
+
+/**
+ * Staff calls go through the same-origin `/backend` proxy (see next.config.ts) so the API's
+ * HttpOnly session cookie is first-party. No token is ever readable from JavaScript.
+ */
+export const STAFF_API = "/backend";
 
 async function parseError(res: Response): Promise<ApiError> {
   try {
@@ -25,8 +32,21 @@ async function parseError(res: Response): Promise<ApiError> {
   return new ApiError(res.statusText || "Request failed", res.status);
 }
 
-function authHeader(token: string): HeadersInit {
-  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+async function call<T>(path: string, init: RequestInit = {}, parse: "json" | "blob" = "json"): Promise<T> {
+  const res = await fetch(`${STAFF_API}${path}`, {
+    ...init,
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      // Required by the API for cookie-authenticated writes (CSRF guard).
+      "X-Requested-With": "ReviewEase",
+      ...(init.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+  return (parse === "blob" ? res.blob() : res.json()) as Promise<T>;
 }
 
 export function isAuthFailure(err: unknown): boolean {
@@ -36,69 +56,54 @@ export function isAuthFailure(err: unknown): boolean {
   );
 }
 
-export async function fetchMe(token: string): Promise<AuthUser> {
-  const res = await fetch(`${API_URL}/api/auth/me`, { headers: authHeader(token) });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.json() as Promise<AuthUser>;
+export function fetchMe(): Promise<AuthUser> {
+  return call<AuthUser>("/api/auth/me");
 }
 
-export async function login(email: string, password: string): Promise<AuthUser> {
-  const res = await fetch(`${API_URL}/api/auth/login`, {
+export function login(email: string, password: string): Promise<AuthUser> {
+  return call<AuthUser>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await call<{ signed_out: boolean }>("/api/auth/logout", { method: "POST" });
+  } catch {
+    /* the local sign-out still happens */
+  }
+}
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<{ changed: boolean }> {
+  return call("/api/auth/password", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.json() as Promise<AuthUser>;
 }
 
-export async function listRestaurants(token: string): Promise<RestaurantSummary[]> {
-  const res = await fetch(`${API_URL}/api/admin/restaurants`, { headers: authHeader(token) });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.json() as Promise<RestaurantSummary[]>;
+export function listRestaurants(): Promise<RestaurantSummary[]> {
+  return call<RestaurantSummary[]>("/api/admin/restaurants");
 }
 
-export async function createRestaurant(
-  token: string,
-  body: {
-    name: string;
-    google_place_id: string;
-    brand_color?: string;
-    menu: { name: string; category?: string }[];
-    tags: { label: string; aspect: "food" | "service" | "ambience" | "value" }[];
-    owner_email?: string;
-    owner_password?: string;
-  },
-): Promise<RestaurantSummary> {
-  const res = await fetch(`${API_URL}/api/admin/restaurants`, {
-    method: "POST",
-    headers: authHeader(token),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.json() as Promise<RestaurantSummary>;
+export function fetchAdminOverview(): Promise<AdminOverviewItem[]> {
+  return call<AdminOverviewItem[]>("/api/admin/overview");
 }
 
-export async function fetchAdminRestaurant(token: string, restaurantId: number): Promise<AdminRestaurantDetail> {
-  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}`, {
-    headers: authHeader(token),
-  });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.json() as Promise<AdminRestaurantDetail>;
+export function createRestaurant(body: {
+  name: string;
+  google_place_id: string;
+  brand_color?: string;
+  menu: { name: string; category?: string }[];
+  tags: { label: string; aspect: "food" | "service" | "ambience" | "value" }[];
+  owner_email?: string;
+  owner_password?: string;
+}): Promise<RestaurantSummary> {
+  return call<RestaurantSummary>("/api/admin/restaurants", { method: "POST", body: JSON.stringify(body) });
 }
 
-export async function fetchQr(
-  token: string,
+export function fetchAdminRestaurant(restaurantId: number): Promise<AdminRestaurantDetail> {
+  return call<AdminRestaurantDetail>(`/api/admin/restaurants/${restaurantId}`);
+}
+
+export function fetchQr(
   restaurantId: number,
   format: "svg" | "png",
   table?: string,
@@ -114,85 +119,51 @@ export async function fetchQr(
   if (extras?.bust != null) {
     params.set("t", String(extras.bust));
   }
-  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}/qr?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.blob();
+  return call<Blob>(`/api/admin/restaurants/${restaurantId}/qr?${params}`, { cache: "no-store" }, "blob");
 }
 
-export async function fetchOwnerMetrics(token: string, restaurantId?: number): Promise<OwnerMetrics> {
+export function fetchOwnerMetrics(restaurantId?: number): Promise<OwnerMetrics> {
   const params = restaurantId != null ? `?restaurant_id=${restaurantId}` : "";
-  const res = await fetch(`${API_URL}/api/owner/metrics${params}`, {
-    headers: authHeader(token),
-  });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.json() as Promise<OwnerMetrics>;
+  return call<OwnerMetrics>(`/api/owner/metrics${params}`);
 }
 
-export async function replaceMenuItems(
-  token: string,
+export function replaceMenuItems(
   restaurantId: number,
   items: { name: string; category: string }[],
 ): Promise<MenuItemPublic[]> {
-  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}/menu-items`, {
+  return call<MenuItemPublic[]>(`/api/admin/restaurants/${restaurantId}/menu-items`, {
     method: "PATCH",
-    headers: authHeader(token),
     body: JSON.stringify({ items }),
   });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.json() as Promise<MenuItemPublic[]>;
 }
 
-export async function replaceTags(
-  token: string,
-  restaurantId: number,
-  tags: { aspect: string; label: string }[],
-): Promise<TagPublic[]> {
-  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}/tags`, {
+export function replaceTags(restaurantId: number, tags: { aspect: string; label: string }[]): Promise<TagPublic[]> {
+  return call<TagPublic[]>(`/api/admin/restaurants/${restaurantId}/tags`, {
     method: "PATCH",
-    headers: authHeader(token),
     body: JSON.stringify({ tags }),
   });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.json() as Promise<TagPublic[]>;
 }
 
 export async function setRestaurantStatus(
-  token: string,
   restaurantId: number,
   active: boolean,
+  slug?: string,
 ): Promise<RestaurantStatusResponse> {
-  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}/status`, {
+  const result = await call<RestaurantStatusResponse>(`/api/admin/restaurants/${restaurantId}/status`, {
     method: "PATCH",
-    headers: authHeader(token),
     body: JSON.stringify({ active }),
   });
-  if (!res.ok) {
-    throw await parseError(res);
+  if (slug) {
+    // Refresh the cached public page so diners see the change right away.
+    await fetch("/api/revalidate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Requested-With": "ReviewEase" },
+      body: JSON.stringify({ slug }),
+    }).catch(() => undefined);
   }
-  return res.json() as Promise<RestaurantStatusResponse>;
+  return result;
 }
 
-export async function deleteRestaurant(
-  token: string,
-  restaurantId: number,
-): Promise<RestaurantDeletedResponse> {
-  const res = await fetch(`${API_URL}/api/admin/restaurants/${restaurantId}`, {
-    method: "DELETE",
-    headers: authHeader(token),
-  });
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-  return res.json() as Promise<RestaurantDeletedResponse>;
+export function deleteRestaurant(restaurantId: number): Promise<RestaurantDeletedResponse> {
+  return call<RestaurantDeletedResponse>(`/api/admin/restaurants/${restaurantId}`, { method: "DELETE" });
 }

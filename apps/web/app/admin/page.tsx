@@ -4,37 +4,14 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { RestaurantCard } from "@/components/admin/RestaurantCard";
+import { StaffAccountActions } from "@/components/admin/StaffAccountActions";
 import { clearAuth, readAuth, writeAuth, type AuthUser } from "@/lib/auth";
-import {
-  createRestaurant,
-  fetchAdminRestaurant,
-  fetchMe,
-  fetchOwnerMetrics,
-  isAuthFailure,
-  listRestaurants,
-} from "@/lib/staffApi";
-import type { AdminRestaurantDetail, Aspect, OwnerMetrics, RestaurantSummary } from "@/lib/types";
+import { createRestaurant, fetchAdminOverview, fetchMe, isAuthFailure } from "@/lib/staffApi";
+import type { AdminOverviewItem, AdminRestaurantDetail, Aspect } from "@/lib/types";
 
 const ASPECTS = new Set(["food", "service", "ambience", "value"]);
 
-type RestaurantCardData = {
-  detail: AdminRestaurantDetail;
-  metrics: OwnerMetrics | null;
-};
-
-function fallbackDetail(row: RestaurantSummary): AdminRestaurantDetail {
-  return {
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    google_place_id: row.google_place_id,
-    brand_color: row.brand_color,
-    created_at: "",
-    menu: [],
-    tags: [],
-    active: row.active !== false,
-  };
-}
+type RestaurantCardData = AdminOverviewItem;
 
 export default function AdminPage() {
   const router = useRouter();
@@ -58,38 +35,8 @@ export default function AdminPage() {
     router.replace("/login");
   }, [router]);
 
-  const loadCards = useCallback(
-    async (token: string) => {
-      const summaries = await listRestaurants(token);
-      const [details, metricsList] = await Promise.all([
-        Promise.all(
-          summaries.map((row: RestaurantSummary) =>
-            fetchAdminRestaurant(token, row.id).catch((err: unknown) => {
-              if (isAuthFailure(err)) {
-                throw err;
-              }
-              return fallbackDetail(row);
-            }),
-          ),
-        ),
-        Promise.all(
-          summaries.map((row: RestaurantSummary) =>
-            fetchOwnerMetrics(token, row.id).catch((err: unknown) => {
-              if (isAuthFailure(err)) {
-                throw err;
-              }
-              return null;
-            }),
-          ),
-        ),
-      ]);
-      return details.map((detail: AdminRestaurantDetail, index: number) => ({
-        detail,
-        metrics: metricsList[index] ?? null,
-      }));
-    },
-    [],
-  );
+  // One request for every restaurant's details and numbers (it used to be two per restaurant).
+  const loadCards = useCallback(async (): Promise<RestaurantCardData[]> => fetchAdminOverview(), []);
 
   useEffect(() => {
     const auth = readAuth();
@@ -100,14 +47,14 @@ export default function AdminPage() {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
-    fetchMe(auth.token)
+    fetchMe()
       .then(async (fresh) => {
         writeAuth(fresh);
         if (cancelled) {
           return;
         }
         setUser(fresh);
-        const next = await loadCards(fresh.token);
+        const next = await loadCards();
         if (!cancelled) {
           setCards(next);
         }
@@ -160,7 +107,7 @@ export default function AdminPage() {
           }
           return { label, aspect: aspect as Aspect };
         });
-      await createRestaurant(user.token, {
+      await createRestaurant({
         name,
         google_place_id: placeId,
         brand_color: colour,
@@ -169,7 +116,7 @@ export default function AdminPage() {
         owner_email: ownerEmail || undefined,
         owner_password: ownerPassword || undefined,
       });
-      const next = await loadCards(user.token);
+      const next = await loadCards();
       setCards(next);
       setName("");
       setPlaceId("");
@@ -213,16 +160,9 @@ export default function AdminPage() {
           <h1 className="font-display text-3xl font-extrabold tracking-tight">Admin Dashboard</h1>
           <p className="text-sm text-muted">{cards.length} restaurants</p>
         </div>
-        <button
-          className="btn btn-secondary btn-sm"
-          type="button"
-          onClick={() => {
-            clearAuth();
-            router.push("/login");
-          }}
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-2">
+          <StaffAccountActions />
+        </div>
       </header>
 
       <form className="sticker grid gap-3 p-5" onSubmit={onCreate}>
@@ -276,9 +216,8 @@ export default function AdminPage() {
           {cards.map((card: RestaurantCardData) => (
             <RestaurantCard
               key={card.detail.id}
-              token={user.token}
               detail={card.detail}
-              metrics={card.metrics}
+              stats={card.stats}
               onAuthFailure={onAuthFailure}
               onUpdated={(detail: AdminRestaurantDetail) => {
                 setCards((current: RestaurantCardData[]) =>
